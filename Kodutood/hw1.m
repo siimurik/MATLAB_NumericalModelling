@@ -18,6 +18,10 @@ tic;
 toc
 
 tic;
+-64.^(1/3)      % Normaalne viis. Kõige kiirem.
+toc
+
+tic;
 nthroot(-64, 3)
 toc
 fprintf("\n");
