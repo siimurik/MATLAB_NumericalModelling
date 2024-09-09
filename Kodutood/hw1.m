@@ -190,8 +190,8 @@ disp("Suurus n on maatriksi ridade ja veergude arv. Samuti ka ühtede arv peadia
 fprintf("\n");
 
 disp("Ülesanne 21.")
-%y = @(x) 7.*x.^4 + 3.*x.^3 + 4.*x.^2 - 2.*x + 8
-y = @(x) 7*x^4 + 3*x^3 + 4*x^2 - 2*x + 8
+y = @(x) 7.*x.^4 + 3.*x.^3 + 4.*x.^2 - 2.*x + 8   % warning-free version
+%y = @(x) 7*x^4 + 3*x^3 + 4*x^2 - 2*x + 8         % "improper vectorization"
 figure(3)
 fplot(y, [-5, 5], 'green')
 
