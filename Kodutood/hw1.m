@@ -16,6 +16,18 @@ disp("Ülesanne 3.")
 tic;
 (-64.)^(1/3)    % NOTE: What????
 toc
+%{ 
+EDIT: See konkreetne sytnax loeb arvu -64 kui kompleksarvu 
+ning avaldab selle järgmisel kujul:
+     -64 = 64 * (-1 + 0j) = 64 * (cos(pi) + i*sin(pi)) .
+Kuna antud arv on võetud ka astmesse, siis tuleb rakendada
+de Moivre valemit
+     z^n = r^n * (cos(n*phi) + i*sin(n*phi))
+ehk
+     z^n = 64^(1/3)*(cos(pi/3) + i*sin(pi/3)) =
+         = 4 * (1/2 + i*sqrt(3)/2) = 
+         = 2 + 2*sqrt(3)*i = 2 + 3.4641*i
+%}
 
 tic;
 -64.^(1/3)      % Normaalne viis. Kõige kiirem.
@@ -33,19 +45,24 @@ V = pi*(r^2)*h
 fprintf("\n");
 
 disp("Ülesanne 5.")
-x4  = 4.0
-mn_ = 2.0
-pi  = 3
-%_x7 = 7.0
-y2z = 2.0
-%3y = 3.0
-fprintf("\n");
+x4  = 4.0;
+mn_ = 2.0;
+pi  = 3;
+%_x7 = 7.0;
+y2z = 2.0;
+%3y = 3.0;
+fprintf("[OK] x4\n");
+fprintf("[OK] mn_\n");
+fprintf("[OK] pi\n");
+fprintf("[X]  _x7\n");
+fprintf("[OK] y2z\n");
+fprintf("[X]  3y\n\n");
 
 disp("Ülesanne 6.")
-[1:6]
-[5:9]
-[1:3:10]
-[3:2:14]
+disp(1:6)      % võib ka lic [1:6]
+disp(5:9)      % [5:9]
+disp(1:3:10)   % [1:3:10]
+disp(3:2:14)   % [3:2:14]
 fprintf("\n");
 
 disp("Ülesanne 7.")
@@ -106,12 +123,17 @@ A = [1. -1.  3. 0.
 
 B = [4. 2. -1. 2.
      3. 1.  5. 0.];
-    
-A+B
-A.*B
-A/B
-A./B
-A.^B
+
+disp("A+B")
+disp(A+B)
+disp("A.*B")
+disp(A.*B)
+disp("A/B")
+disp(A/B)
+disp("A./B")
+disp(A./B)
+disp("A.^B")
+disp(A.^B)
 fprintf("\n");
 
 disp("Ülesanne 15.")
@@ -143,8 +165,7 @@ fprintf("\n");
 disp("Ülesanne 16.")
 a = [4, 3 , -5, 6];
 b = [8; -2; 1; 9];
-a*b
-fprintf("\n");
+fprintf('a*b = %.f \n\n', a*b);
 
 disp("Ülesanne 17.")
 clear A
@@ -174,14 +195,14 @@ A(:, 2)
 fprintf("\n");
 
 disp("Ülesanne 19.")
-a = rand(1, 10);
-b = rand(1, 10);
+a = rand(1)
+b = rand(1)
 
 disp('a)')
-disp(a.^3 .* sqrt(b))
+disp(a^3 * sqrt(b))
 
 disp('b)')
-disp( nthroot(a, 5) ./ (b - 3*log(a)) )
+disp( nthroot(a, 5) / (b - 3*log(a)) )
 fprintf("\n");
 
 disp("Ülesanne 20.")
