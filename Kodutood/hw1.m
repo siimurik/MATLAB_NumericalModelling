@@ -13,7 +13,7 @@ fprintf('a) %.4f\n', 5*sqrt(3)/8 + 15*(1/13 - 2/(5*4^3) - 1/(8*2^5)) );
 fprintf('b) %.4f\n\n', sqrt(2 + sqrt(2 + sqrt(2 + sqrt(2)))) );
 
 disp("Ülesanne 3.")
-tic;
+tic
 (-64.)^(1/3)    % NOTE: What????
 toc
 %{ 
@@ -29,11 +29,11 @@ ehk
          = 2 + 2*sqrt(3)*i = 2 + 3.4641*i
 %}
 
-tic;
+tic
 -64.^(1/3)      % Normaalne viis. Kõige kiirem.
 toc
 
-tic;
+tic
 nthroot(-64, 3)
 toc
 fprintf("\n");
