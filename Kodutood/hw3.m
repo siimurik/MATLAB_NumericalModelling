@@ -79,16 +79,20 @@ hold off
 
 fprintf("\nc) Lahend hariliku iteratsioonmeetodiga")
 %   2.*x.^3 - 11.7.*x.^2 + 17.7.*x - 5 = 0
-g1 = @(x) 5.0/(2*x^2 - 11.7*x + 17.7);      % Leiab ainult esimese nullkoha.
-%g2 = @(x) nthroot(5.0./( 2.0 - 11.7./x + 17.7./x.^2 ), 3); % HAJUB 
-g3 = @(x) sqrt(5.0./( 2.0.*x - 11.7 + 17.7./x ));   % Samuti ainult esimene.
-x_algne = 3.5;  
+%g1 = @(x) (5.0 - 2.*x.^3 + 11.7.*x.^2)./11.7;      % Hajub, kuid ei peaks esimesel
+g1 = @(x) 5.0./(2.*x.^2 - 11.7.*x + 17.7);                   % Leiab esimese nullkoha. 
+g2 = @(x) sqrt((2.*x.^3 + 17.7.*x - 5.0)./11.7);            % Leiab teise nullkoha.
+g3 = @(x) nthroot((5.0 + 11.7.*x.^2 - 17.7.*x)./2.0, 3);    % Leiab kolmanda nullkoha.
+G = {g1, g2, g3};
+x0 = [0, 2, 3.5]; % Punktid, mis visuaalselt umbes läbivad x-telge
+%x_algne = 0.0;  
 tol = 1.0E-6;
-max_iter = 100000;
+max_iter = 1000000;
 %[x_uus, count] = harilik_iter(g3, x_algne, tol, max_iter);
-[x_uus, count] = him(y, g3, x_algne, tol, max_iter);
-fprintf("x_uus = %.4f\n", x_uus)
-fprintf("count = %d\n", count)
+for i = 1:length(x0)
+    [~, ~] = him(y, G{i}, x0(i), tol, max_iter);
+end
+
 
 fprintf("\nÜlesanne 4.")
 alpha = 4.0;
@@ -197,6 +201,8 @@ function [x_uus, count] = him(f, g, x_algne, tol, max_iter)
         x_uus  = g(x_uus);
         count  = count + 1;
     end
+
+    fprintf('Iterations = %d, Solution = [%.6f]\n', count, x_uus);
 
     % Kontroll, kas maksimaalne iteratsioonide arv ületati
     if count >= max_iter
