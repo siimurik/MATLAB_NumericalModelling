@@ -124,7 +124,7 @@ function [x, count] = modified_newton(f, df, x0, eps, max_iter)
     df_x0 = df(x0); % Tuletise väärtus alglähendis
 
     % Iteratiivne protsess
-    while (norm(f(x))) > eps && count < max_iter
+    while (abs(f(x))) > eps && count < max_iter
         x0 = x;
         x  = x0 - f(x0) / df_x0;
         count = count + 1;
