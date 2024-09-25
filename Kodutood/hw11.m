@@ -35,7 +35,7 @@ tuletis(length(y)) = (y(length(y))-y(length(y)-1))/h;
 disp(tuletis)
 
 fprintf("Ülesanne 2.\n")
-x = [-2 0 1.5 3.2 4.9 6.1 8.1 9.2];
+x = [-2   0.0 1.5 3.2  4.9  6.1  8.1  9.2];
 y = [-2.8 2.1 5.5 9.7 13.5 16.2 21.1 23.8];
 figure(2)
 plot(x,y,'o')
