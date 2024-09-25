@@ -10,6 +10,7 @@ ylim([-4, 4])
 xline(0)
 yline(0)
 grid on
+hold off 
 
 syms x
 %g = @(x) x.^6 - 1.0;                   % ei sobi, hajub
@@ -59,23 +60,27 @@ fplot(@(x) x.^3 - 6.*x.^2 + 3.*atan(x) + 3)
 xline(0); yline(0)
 xlim([-2, 7])
 ylim([-30, 30])
+title("f(x) = x^3 - 6*x^2 + 3*atan(x) + 3")
 grid on
+hold off
 
-fprintf("Harilik iteratsioonimeetod:\n")
 syms x
 %g = @(x) tan((-x.^3 + 6.*x.^2 - 3)./3.0);
 g1 = @(x) nthroot(6.*x.^2 - 3.*atan(x) - 3.0, 3);
-dg1 = matlabFunction(diff( nthroot(6.*x.^2 - 3.*atan(x) - 3.0, 3) ));
-g2 = @(x) sqrt((x.^3 + 3.*atan(x) + 3)./6.0);
-dg2 = matlabFunction(diff( sqrt((x.^3 + 3.*atan(x) + 3)/6.0) ));
+%dg1 = matlabFunction(diff( nthroot(6.*x.^2 - 3.*atan(x) - 3.0, 3) ));
+dg1 = @(x) (4.0.*x+4.0.*x.^3-1)./( (1+x.^2).*nthroot((6.*x.^2-3.*atan(x)-3.0).^2, 3) );
+g2     = @(x)  sqrt((x.^3 + 3.*atan(x) + 3)./6.0);
+g2_neg = @(x) -sqrt((x.^3 + 3.*atan(x) + 3)/6.0);
+%dg2 = matlabFunction(diff( sqrt((x.^3 + 3.*atan(x) + 3)/6.0) ));
+dg2 = @(x)  (x.^4 + x.^2 + 1)./( 4.*(1+x.^2).*sqrt(1.0./6*(x.^3+3.*atan(x)+3)) );
 x0 = [-0.5, 1.0, 5.8];
 abs(dg1(x0))    % sobib 5.8 jaoks
 abs(dg2(x0))    % sobib -0.5, 1.0 jaoks
 
-epsilon = 1.0E-6;
+fprintf("Harilik iteratsioonimeetod:\n")
+epsilon = 1.0E-10;
 max_iter = 1000;
-g2_neg = @(x) -sqrt((x.^3 + 3.*atan(x) + 3)/6.0);
-[~, ~] = him(g2_neg, x0(1), epsilon, max_iter);
+[~, ~] = him(g2_neg, x0(1), epsilon, max_iter); % neg sest -0.5 ees on miinusmärk
 [~, ~] = him(g2,     x0(2), epsilon, max_iter);
 [~, ~] = him(g1,     x0(3), epsilon, max_iter);
 
@@ -92,6 +97,12 @@ for i = 1:length(x0)
     [~, ~] = modified_newton(f, df, x0(i), epsilon, max_iter);
 end
 
+fprintf("Lõikajate meetod:\n")
+[~, ~] = secant_method(f, -0.4, -0.5, epsilon, max_iter);
+[~, ~] = secant_method(f,  1.0, 1.1, epsilon, max_iter);
+[~, ~] = secant_method(f,  5.8, 5.9, epsilon, max_iter);
+
+
 fprintf("\nÜlesanne 4.")
 f = @(x) x.^5 - x.^2 - 2.0;
 figure(3)
@@ -104,7 +115,7 @@ yline(0)
 
 [~, ~] = secant_method(f, 1.0, 1.5, epsilon, max_iter);
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [x_uus, count] = him(g, x_algne, tol, max_iter)
     % Leiab lahendi hariliku iteratsioonimeetodiga
     % g - iteratsioonifunktsioon
