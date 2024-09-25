@@ -79,8 +79,8 @@ hold off
 
 fprintf("\nc) Lahend hariliku iteratsioonmeetodiga")
 %   2.*x.^3 - 11.7.*x.^2 + 17.7.*x - 5 = 0
-%g1 = @(x) (5.0 - 2.*x.^3 + 11.7.*x.^2)./11.7;      % Hajub, kuid ei peaks esimesel
-g1 = @(x) 5.0./(2.*x.^2 - 11.7.*x + 17.7);                   % Leiab esimese nullkoha. 
+%g1 = @(x) 5.0./(2.*x.^2 - 11.7.*x + 17.7);                 
+g1 = @(x) (5.0 - 2.*x.^3 + 11.7.*x.^2)./17.7;               % Leiab esimese nullkoha. 
 g2 = @(x) sqrt((2.*x.^3 + 17.7.*x - 5.0)./11.7);            % Leiab teise nullkoha.
 g3 = @(x) nthroot((5.0 + 11.7.*x.^2 - 17.7.*x)./2.0, 3);    % Leiab kolmanda nullkoha.
 G = {g1, g2, g3};
