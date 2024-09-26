@@ -172,7 +172,7 @@ function [x_uus, count] = harilik_iter(g, x_algne, tol, max_iter)
     count  = 0;
 
     % Iteratsiooniprotsess
-    while norm(abs(x_uus - x_vana), 2) >= tol && count < max_iter
+    while abs(x_uus - x_vana) >= tol && count < max_iter
         x_vana = x_uus;
         x_uus  = g(x_vana);
         count  = count + 1;
