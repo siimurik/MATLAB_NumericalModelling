@@ -1,55 +1,23 @@
-// Compile and execute with
-// 	$ gcc yl1.c -o yl1 -lm -llapacke -lcblas -fopenmp
-// 	$ ./yl1
-//------------------------------------------------------- 	
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <lapacke.h>
+#include <cblas.h>
+//#include <omp.h> 
 
-#include <stdio.h> 		// for `printf` to work
-#include <math.h> 		// mathematical functions (exp, cos, log, ...)
-#include <stdlib.h> 	// For EXIT_FAILURE to work
-#include <lapacke.h> 	// Linear Algebra PACKage in Fortran
-#include <cblas.h> 		// Basic Linear Algebra Subprograms in C	
-#include <string.h> 	// For the memcpy() command
-//#include <omp.h>        // OpenMP for parallelization
-
-typedef struct {
+typedef struct{
 	float *data;
-	int rows;
-	int cols;
+	int    rows;
+	int    cols;
 } Matrix;
 
-typedef struct {
+
+typedef struct{
 	float *data;
-	int size;
+	int    size;
 } Vector;
 
-// Functions for Exercise 2.
-float u_func(float x, float y, float z)
-{
-	return (x*y + z/(x-4.0*y*y) + z*z )/(x*x*x + y*y - 3.0*z*x);
-}
-
-float v_func(float x, float y, float z){
-	return pow(x*y*z + x*x - (2.0*y)*(2.0*y), 5.0/(x+y));
-}
-
-// Function for exercise 3.
-float y_func(float x)
-{
-	return (x*x-3.0)*pow(2.0+x,4.0) - 5.0*exp(x) + 2.0*cos(x+1.0);
-}
-
-// Function for exercise 4.
-float z_func(float u)
-{
-	return pow(u,5.0) - 3.0*pow(u,4.0) + pow(u,3.0) + 1.0;
-}
-
-// Function for exercise 5.
-float F(float x, float y){
-	return sin(x-y)/(x*x) + pow( cos(2.0*x+y)/pow((x-y),4.0), 1.0/3.0 );
-}
-
-//--------------------------------------------------------------------------------
 
 // Function to create and initialize a matrix with specific values
 Matrix createMatrix(int rows, int cols, float *values) {
@@ -73,39 +41,7 @@ Matrix createMatrix(int rows, int cols, float *values) {
     return matrix;
 }
 
-// Function to print the matrix
-void printM(const Matrix *matrix) {
-    for (int i = 0; i < matrix->rows; i++) {
-        for (int j = 0; j < matrix->cols; j++) {
-            printf("%.2f ", matrix->data[i * matrix->cols + j]);
-        }
-        printf("\n");
-    }
-}
-
-// If the function is declared as 
-// 		void printm(Matrix matvec){...}
-// then there are a few things to consider. 
-//
-// Firstly, this implementation makes a copy of the entire 
-// structure, which can be inefficient for large matrices.
-//
-// Secondly, not using `const`, means the function could 
-// potentially modify the matvec structure, even though it 
-// doesn't.
-//
-// Thirdly, both implementations access the matrix data in
-// the same way, using the formula data[i * cols + j]. However, 
-// the second implementation uses the arrow operator (->) to 
-// access members of the structure through a pointer, which 
-// is appropriate.
-//
-// Finally, the current method can be called by
-// 		printm(matrix_A);
-// but, when using pointers, the approach should be
-// 		printm(&matrix_A);
-// 
-// Therefore we declare this funtion in the following matter:
+// Function for printing a matrix
 void printMatrix(const Matrix *matvec) {
     int max_print_size = 6;
 
@@ -329,15 +265,69 @@ Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
     return C;
 }
 
-// Function to free the allocated memory
+Matrix linsolve_overdet(const Matrix *A, Matrix *F) {
+    // Prepare the LAPACK parameters
+    int n = A->rows;  // Size of the matrix
+    int nrhs = F->cols;  // Number of right-hand sides
+    int lda = n;  // Leading dimension of A
+    int ldb = n;  // Leading dimension of B
+    int ipiv[n];  // Array for pivot indices
+    int info;  // Variable to store the info from LAPACK
+
+    // Ensure x has the correct dimensions
+    Matrix x;
+    x.rows = n;
+    x.cols = nrhs;
+    x.data = (float *)malloc(n * nrhs * sizeof(float));
+    
+    if (x.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Solve the system using LAPACK's sgesv function
+    info = LAPACKE_sgesv(LAPACK_ROW_MAJOR, n, nrhs, A->data, lda, ipiv, F->data, ldb);
+
+    if (info != 0) {
+        fprintf(stderr, "Error: LAPACK sgesv failed with info = %d\n", info);
+        free(x.data);
+        exit(EXIT_FAILURE);
+    }
+
+    // Extract the solution from the F matrix into the x matrix
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < nrhs; j++) {
+            x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
+        }
+    }
+
+    return x;
+}
+
+
+/* Function to free the allocated memory
+--------------------------------------------------------
+ You can also use:
+ ```
+    void matvecFree(MatrixVector matvec) {
+        free(matvec.data);
+    }
+```
+ But it can lead to potential memory leaks if you 
+ need to manage the struct after freeing its data.
+
+ This one below is more robust and aligns with 
+ best practices in C programming for memory management.*/
 void freeMatrix(Matrix *matrix) {
     free(matrix->data);
-    matrix->data = NULL; // Avoid dangling pointer
-}
+    matrix->data = NULL;    // Avoid dangling pointer.
+}                           // Good practice to avoid 
+                            // accidental access to freed memory.
 
 //---------------------------------------------------------------------------
 // Functions for vectors
 
+// Function to create a vector from array values
 Vector createVector(int size, float *values) {
     Vector vector;
     vector.size = size;
@@ -348,8 +338,7 @@ Vector createVector(int size, float *values) {
         exit(EXIT_FAILURE);
     }
 
-    // Populate the vector with the provided values in parallel if necessary
-    //#pragma omp parallel for
+    // Populate the vector with the provided values
     for (int i = 0; i < size; i++) {
         vector.data[i] = values[i];
     }
@@ -394,121 +383,144 @@ Vector mat_vec_mult(const Matrix *A, const Vector *x) {
     return result;
 }
 
+// Function to solve the linear system Ax = b
+Vector linsolve(const Matrix *A, const Vector *b) {
+    // Check for dimension compatibility
+    if (A->cols != b->size) {
+        fprintf(stderr, "Error: Incompatible dimensions for system.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate memory for the result vector
+    Vector x;
+    x.size = A->cols;
+    x.data = (float *)malloc(x.size * sizeof(float));
+
+    if (x.data == NULL) {
+        fprintf(stderr, "Memory allocation failed for result vector.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the input vector b to the result vector x
+    for (int i = 0; i < x.size; i++) {
+        x.data[i] = b->data[i];
+    }
+
+    // Perform LU factorization and solve the system using LAPACKE
+    int *ipiv = (int *)malloc(A->rows * sizeof(int));
+    int info = LAPACKE_sgesv(LAPACK_COL_MAJOR, // Matrix storage order
+                             A->rows, // Number of rows in A
+                             1, // Number of right-hand sides
+                             A->data, // Pointer to matrix A
+                             A->cols, // Leading dimension of A
+                             ipiv, // Pivot indices
+                             x.data, // Pointer to result vector x
+                             A->cols); // Leading dimension of x
+
+    if (info != 0) {
+        fprintf(stderr, "Error: LAPACKE_sgesv failed with info = %d.\n", info);
+        exit(EXIT_FAILURE);
+    }
+
+    // Free allocated memory for pivot indices
+    free(ipiv);
+
+    return x; // Return the result vector
+}
+
 void freeVector(Vector *vector) {
     free(vector->data);
     vector->data = NULL; // Avoid dangling pointer
 }
 
-//-------------------------------------------------------
-
 int main()
 {
-	float x, y, z, w, u, v;
+	int rows = 3;
+    int cols = 3;
+    int mat_dim = rows*cols;
+    float A_values[9] = {   
+                        1.0,  4.0, 7.0,
+                        8.0,  2.0, 0.0,
+                        5.0, -1.0, 1.0
+                        };
+    
+    // NB! Important NOTE!!!
+    // * If the matrices are small and you value simplicity, go with Matrix A.
+    // * If you expect to work with larger matrices or need more control over 
+    // memory management, use Matrix *A.
+    //-----------------------------------------------------------------------
+    // For first case:
+    //      Matrix A = createMatrix(rows, cols, A_values);
+    //      ...
+    //      freeMatrix(&A);
+    // For second case:
+    //      Matrix *A = createMatrix(rows, cols, A_values);
+    //      ...
+    //      freeMatrix(A);
 
-	printf("Exercise 1.\n");
+    Matrix A = createMatrix(rows, cols, A_values);
+    printf("Matrix A:\n");
+    printMatrix(&A);
 
-	x = 13.0;
-	y =  7.0;
-	z = sqrt(x);
-	w = 6.0*x*y - x/y;
+    float B_values[3] = {6.0, 10.0, 3.0};
+    Vector B = createVector(cols, B_values);
+    printf("Vector B:\n");
+    printVector(&B);
 
-	printf("z = %.4f\nw = %.4f\n", z, w);
+    float d_values[10];
+    int i;
+    for (i = 0; i < 10; i++)
+    {
+        d_values[i] = i+1; 
+    }
+    Vector d = createVector(10, d_values);
+    printf("Vector d:\n");
+    printVector(&d);
 
-	printf("\nExercise 2.\n");
-	x =  2.0;
-	y = -1.0;
-	z =  5.0;
-	u = u_func(x, y, z);
-	v = v_func(x, y, z);
-	printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
-	printf("u = %.4f\nv = %.4f\n\n", u, v);
+    Matrix F = transposeMatrix(&A);
+    printf("Matrix F:\n");
+    printMatrix(&F);
 
-	x = -6.0;
-	y =  5.0;
-	z = -2.0;
-	u = u_func(x, y, z);
-	v = v_func(x, y, z);
-	printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
-	printf("u = %.4f\nv = %.4e\n", u, v);
-	
-	printf("\nExercise 3.\n");
-	float x_vec[3] = {-1.0, 4.0, 3.0};
-	int i;
+    // mat.data[0][1] ~ mat.data[0*mat.cols +1]
+    float afd = A.data[0*A.cols + 1] + F.data[1*F.cols + 0] + d.data[9];
+    printf("\nResult of a[0][1] + f[1][0] + d[9] = %.1f\n", afd);
 
-	for (i = 0; i < 3; i++)
-	{
-		printf("y(%.0f) = %.4e\n", x_vec[i], y_func(x_vec[i]) );
-	}
+    printf("\nResult of A*X = F.\nX=");
+    Matrix X = linsolve_overdet(&A, &F);
+    printMatrix(&X);
 
-	printf("\nExercise 4.\n");
-	float u_vec[2] = {2.0, 8.0};
-	for (i = 0; i < 2; i++)
-	{
-		printf("z(%.0f) = %.4f\n", u_vec[i], z_func(u_vec[i]) );
-	}
+    float mat_values[9] =   {
+                            4.0, 2.0, 0.0,
+                            2.0, 3.0, 1.0,
+                            0.0, 1.0, 2.5
+                            };
+    Matrix matA = createMatrix(3, 3, mat_values);
+    printf("\nMatrix A:\n");
+    printMatrix(&matA);
 
-	printf("\nExercise 5.\n");
-	printf("F(50, -30) = %.4f\n", F(50.0, -30.0));
-	
+    float vec_values[3] = {2.0, 5.0, 6.0}; 
+    Vector vecB = createVector(3, vec_values);
+    printf("Vector b:\n");
+    printVector(&vecB);
 
-	printf("\nExercise 6.\n");
-	int rows, cols;
-	rows = 3;
-	cols = 3;
+    // Alternative approach:
+    //    x = A^-1 * b
+    Matrix inv_matA = inverseMatrix(&matA);
+    //Vector vecX = mat_vec_mult(&inv_matA, &vecB);
 
-	// Declare and print values for the A matrix
-	float mat_values[9] = {3, 12, 52, 4, 6, -11, -2, 7, 2};
-	Matrix A = createMatrix(rows, cols, mat_values);
-	printf("Matrix A:\n");
-	//printM(&A);
-	printMatrix(&A);
+    Vector vecX = linsolve(&matA, &vecB);
+    printf("\nSolution to A*x = b:\nx =");
+    printVector(&vecX);
 
-	// Declare and print values for the b vector
-	float vec_values[3] = {13.0, -2.0, 5.0};
-	int size = sizeof(vec_values) / sizeof(vec_values[0]); // Calculate the size of the vector
-	//printf("size = %d\n", size);
-	Vector b = createVector(size, vec_values);
-	printf("Vector b: ");
-	printVector(&b);
-
-	// Find the transposed and inverse matrix of matrix A
-	Matrix A_T   = transposeMatrix(&A);
-	Matrix inv_A = inverseMatrix(&A);
-
-	// B = 2*A^T + A^-1
-	Matrix twoTimesAT = matscal(&A_T, 2.0);
-	Matrix B = matadd( &twoTimesAT, &inv_A );
-	printf("\nMatrix B: \n");
-	printMatrix(&B);
-
-	// C = A*B
-	Matrix C = matmul(&A, &B);
-	printf("\nMatrix C: \n");
-	printMatrix(&C);
-	
-	// det(A)
-	printf("\nDeterminant of matrix A: ");
-	float det_A = det(&A);
-	printf("%.4f.\n\n", det_A);
-
-	Vector d = mat_vec_mult(&A, &b);
-	printf("Vector d: \n");
-	printVector(&d);
-
-	// D = A.*B
-	Matrix D = mat_elem_mult(&A, &B);
-	printf("\nMatrix D:\n");
-	printMatrix(&D);
-
-	// Free the allocated memory
-	freeMatrix(&A);
-	freeMatrix(&B);
-	freeMatrix(&C);
-	freeMatrix(&D);
-	freeMatrix(&A_T);
-	freeMatrix(&inv_A);
-	freeMatrix(&twoTimesAT);
-	freeVector(&b);
+    // Free allocated memory
+    freeMatrix(&A);
+    freeMatrix(&F);
+    freeMatrix(&X);
+    freeMatrix(&matA);
+    freeVector(&B);
+    freeVector(&d);
+    freeVector(&vecB);
+    freeVector(&vecX);
 
 	return 0;
 }
