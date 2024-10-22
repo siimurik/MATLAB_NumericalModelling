@@ -265,6 +265,8 @@ Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
     return C;
 }
 
+// TODO! Define F as const Matrix *F and write the 
+// data into x before running sgesv()
 Matrix linsolve_overdet(const Matrix *A, Matrix *F) {
     // Prepare the LAPACK parameters
     int n = A->rows;  // Size of the matrix
@@ -285,20 +287,20 @@ Matrix linsolve_overdet(const Matrix *A, Matrix *F) {
         exit(EXIT_FAILURE);
     }
 
+    // Write F matrix values into x, since they get overwritten
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < nrhs; j++) {
+            x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
+        }
+    }
+
     // Solve the system using LAPACK's sgesv function
-    info = LAPACKE_sgesv(LAPACK_ROW_MAJOR, n, nrhs, A->data, lda, ipiv, F->data, ldb);
+    info = LAPACKE_sgesv(LAPACK_ROW_MAJOR, n, nrhs, A->data, lda, ipiv, x.data, ldb);
 
     if (info != 0) {
         fprintf(stderr, "Error: LAPACK sgesv failed with info = %d\n", info);
         free(x.data);
         exit(EXIT_FAILURE);
-    }
-
-    // Extract the solution from the F matrix into the x matrix
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < nrhs; j++) {
-            x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
-        }
     }
 
     return x;
