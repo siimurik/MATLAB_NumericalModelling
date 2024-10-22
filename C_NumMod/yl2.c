@@ -265,9 +265,8 @@ Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
     return C;
 }
 
-// TODO! Define F as const Matrix *F and write the 
-// data into x before running sgesv()
-Matrix linsolve_overdet(const Matrix *A, Matrix *F) {
+// Function to solve an overdetermined system of linear equations
+Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     // Prepare the LAPACK parameters
     int n = A->rows;  // Size of the matrix
     int nrhs = F->cols;  // Number of right-hand sides
