@@ -50,6 +50,11 @@ float F(float x, float y){
 }
 
 //--------------------------------------------------------------------------------
+// Function to free the allocated memory
+void freeMatrix(Matrix *matrix) {
+    free(matrix->data);
+    matrix->data = NULL; // Avoid dangling pointer
+}
 
 // Function to create and initialize a matrix with specific values
 Matrix createMatrix(int rows, int cols, float *values) {
@@ -64,11 +69,13 @@ Matrix createMatrix(int rows, int cols, float *values) {
     }
 
     // Populate the matrix with the provided values
-    // Perform in parallel if necessary
+    memcpy(matrix.data, values, matrix.rows * matrix.cols * sizeof(float));
+    
+	// Perform in parallel if necessary
     //#pragma omp parallel for    
-    for (int i = 0; i < rows * cols; i++) {
-        matrix.data[i] = values[i];
-    }
+    //for (int i = 0; i < rows * cols; i++) {
+    //    matrix.data[i] = values[i];
+    //}
 
     return matrix;
 }
@@ -115,7 +122,7 @@ void printMatrix(const Matrix *matvec) {
         for (int i = 0; i < matvec->rows; i++) {
             printf("  [");
             for (int j = 0; j < matvec->cols; j++) {
-                printf("%.4f", matvec->data[i * matvec->cols + j]);
+                printf("%9.4f", matvec->data[i * matvec->cols + j]);
                 if (j < matvec->cols - 1) printf(", ");
             }
             printf("]");
@@ -125,7 +132,7 @@ void printMatrix(const Matrix *matvec) {
         for (int i = 0; i < max_print_size; i++) {
             printf("  [");
             for (int j = 0; j < max_print_size; j++) {
-                printf("%.4f", matvec->data[i * matvec->cols + j]);
+                printf("%9.4f", matvec->data[i * matvec->cols + j]);
                 if (j < matvec->cols - 1) printf(", ");
             }
             printf(" ...");
@@ -183,15 +190,18 @@ Matrix inverseMatrix(const Matrix *mat) {
     }
 
     // Copy the original matrix to the inverse matrix
-    // If not done this way, it will run, but dump the core and say
+	memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
+    
+	// Extra option for parallelization:
+	// If not done this way, it will run, but dump the core and say
     // "free(): double free detected in tcache 2
     // Aborted (core dumped)"
     // #pragma omp parallel for
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            inverse.data[i * n + j] = mat->data[i * n + j];
-        }
-    }
+    //for (int i = 0; i < n; i++) {
+    //    for (int j = 0; j < n; j++) {
+    //        inverse.data[i * n + j] = mat->data[i * n + j];
+    //    }
+    //}
 
     // Perform LU decomposition
     int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, inverse.data, n, ipiv);
@@ -227,7 +237,8 @@ Matrix matmul(const Matrix *A, const Matrix *B) {
     C.cols = B->cols;
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
 
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 
+					 1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
 
     return C;
 }
@@ -280,8 +291,23 @@ float det(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
+	// Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
+	Matrix matCopy;
+	matCopy.rows = mat->rows;
+	matCopy.cols = mat->cols;
+	matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
+
+    if (matCopy.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(ipiv);
+        exit(EXIT_FAILURE);
+    }	
+
+	// Copy the original matrix values to the temporary one to avoid overwriting
+	memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
+
     // Perform in-place LU decomposition
-    int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, mat->data, n, ipiv);
+    int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, matCopy.data, n, ipiv);
     if (info != 0) {
         fprintf(stderr, "Matrix is singular and cannot compute the determinant.\n");
         free(ipiv);
@@ -290,18 +316,19 @@ float det(const Matrix *mat) {
 
     // Calculate the determinant as the product of the diagonal elements
     for (int i = 0; i < n; i++) {
-        determinant *= mat->data[i * n + i]; // Diagonal element
+        determinant *= matCopy.data[i * n + i]; // Diagonal element
         if (ipiv[i] != i + 1) { // Check for row swaps
             determinant = -determinant; // Adjust sign for row swaps
         }
     }
 
     free(ipiv);
+	freeMatrix(&matCopy); // Temporary. Not necessary outside the function.
     return determinant;
 }
 
 // Function to perform matrix element-wise multiplication
-Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
+Matrix matelem(const Matrix *A, const Matrix *B) {
     // Check if both matrices have the same dimensions
     if (A->rows != B->rows || A->cols != B->cols) {
         fprintf(stderr, "Matrices must have the same dimensions for element-wise multiplication.\n");
@@ -329,15 +356,17 @@ Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
     return C;
 }
 
-// Function to free the allocated memory
-void freeMatrix(Matrix *matrix) {
-    free(matrix->data);
-    matrix->data = NULL; // Avoid dangling pointer
-}
 
 //---------------------------------------------------------------------------
 // Functions for vectors
 
+// Free allocated vector memory
+void freeVector(Vector *vector) {
+    free(vector->data);
+    vector->data = NULL; // Avoid dangling pointer
+}
+
+// Function to save values into a vector
 Vector createVector(int size, float *values) {
     Vector vector;
     vector.size = size;
@@ -348,11 +377,14 @@ Vector createVector(int size, float *values) {
         exit(EXIT_FAILURE);
     }
 
-    // Populate the vector with the provided values in parallel if necessary
-    //#pragma omp parallel for
-    for (int i = 0; i < size; i++) {
-        vector.data[i] = values[i];
-    }
+    // Populate the vector with the provided values 
+	memcpy(vector.data, values, vector.size * sizeof(float));
+    
+	// Paralellize if necessary
+	//#pragma omp parallel for
+    //for (int i = 0; i < size; i++) {
+    //    vector.data[i] = values[i];
+    //}
 
     return vector;
 }
@@ -369,7 +401,7 @@ void printVector(const Vector *vector) {
 }
 
 // Function to perform matrix-vector multiplication
-Vector mat_vec_mult(const Matrix *A, const Vector *x) {
+Vector matvec(const Matrix *A, const Vector *x) {
     // Check if the number of columns in A matches the size of the vector x
     if (A->cols != x->size) {
         fprintf(stderr, "Error: Number of columns in matrix A must match the size of vector x.\n");
@@ -389,15 +421,12 @@ Vector mat_vec_mult(const Matrix *A, const Vector *x) {
     // result = alpha * A * x + beta * result
     float alpha = 1.0f; // Scalar multiplier for A * x
     float beta = 0.0f;  // Scalar multiplier for the initial value of result
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, A->cols, x->data, 1, beta, result.data, 1);
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, 
+								   A->cols, x->data, 1, beta, result.data, 1);
 
     return result;
 }
 
-void freeVector(Vector *vector) {
-    free(vector->data);
-    vector->data = NULL; // Avoid dangling pointer
-}
 
 //-------------------------------------------------------
 
@@ -475,6 +504,7 @@ int main()
 	Matrix A_T   = transposeMatrix(&A);
 	Matrix inv_A = inverseMatrix(&A);
 
+	
 	// B = 2*A^T + A^-1
 	Matrix twoTimesAT = matscal(&A_T, 2.0);
 	Matrix B = matadd( &twoTimesAT, &inv_A );
@@ -490,13 +520,13 @@ int main()
 	printf("\nDeterminant of matrix A: ");
 	float det_A = det(&A);
 	printf("%.4f.\n\n", det_A);
-
-	Vector d = mat_vec_mult(&A, &b);
+	
+	Vector d = matvec(&A, &b);
 	printf("Vector d: \n");
 	printVector(&d);
 
 	// D = A.*B
-	Matrix D = mat_elem_mult(&A, &B);
+	Matrix D = matelem(&A, &B);
 	printf("\nMatrix D:\n");
 	printMatrix(&D);
 
@@ -509,6 +539,7 @@ int main()
 	freeMatrix(&inv_A);
 	freeMatrix(&twoTimesAT);
 	freeVector(&b);
+	freeVector(&d);
 
 	return 0;
 }

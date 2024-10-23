@@ -1,3 +1,8 @@
+/* Compile and execute with:
+ * 	$ gcc yl2.c -o yl2 -lm -llapacke -lcblas
+ * 	$ ./yl2
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +24,25 @@ typedef struct{
 } Vector;
 
 
+/* Function to free the allocated memory
+--------------------------------------------------------
+ You can also use:
+ ```
+    void matvecFree(MatrixVector matvec) {
+        free(matvec.data);
+    }
+```
+ But it can lead to potential memory leaks if you 
+ need to manage the struct after freeing its data.
+
+ This one below is more robust and aligns with 
+ best practices in C programming for memory management.*/
+void freeMatrix(Matrix *matrix) {
+    free(matrix->data);
+    matrix->data = NULL;    // Avoid dangling pointer.
+}                           // Good practice to avoid accidental
+                            // access to freed memory.
+
 // Function to create and initialize a matrix with specific values
 Matrix createMatrix(int rows, int cols, float *values) {
     Matrix matrix;
@@ -32,11 +56,14 @@ Matrix createMatrix(int rows, int cols, float *values) {
     }
 
     // Populate the matrix with the provided values
-    // Perform in parallel if necessary
+    memcpy(matrix.data, values, matrix.rows * matrix.cols * sizeof(float));
+	
+	// Perform in parallel if necessary
     //#pragma omp parallel for    
-    for (int i = 0; i < rows * cols; i++) {
-        matrix.data[i] = values[i];
-    }
+    //for (int i = 0; i < rows * cols; i++) {
+    //    matrix.data[i] = values[i];
+    //}
+	
 
     return matrix;
 }
@@ -51,7 +78,7 @@ void printMatrix(const Matrix *matvec) {
         for (int i = 0; i < matvec->rows; i++) {
             printf("  [");
             for (int j = 0; j < matvec->cols; j++) {
-                printf("%.4f", matvec->data[i * matvec->cols + j]);
+                printf("%9.4f", matvec->data[i * matvec->cols + j]);
                 if (j < matvec->cols - 1) printf(", ");
             }
             printf("]");
@@ -61,7 +88,7 @@ void printMatrix(const Matrix *matvec) {
         for (int i = 0; i < max_print_size; i++) {
             printf("  [");
             for (int j = 0; j < max_print_size; j++) {
-                printf("%.4f", matvec->data[i * matvec->cols + j]);
+                printf("%9.4f", matvec->data[i * matvec->cols + j]);
                 if (j < matvec->cols - 1) printf(", ");
             }
             printf(" ...");
@@ -119,15 +146,19 @@ Matrix inverseMatrix(const Matrix *mat) {
     }
 
     // Copy the original matrix to the inverse matrix
-    // If not done this way, it will run, but dump the core and say
+	memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
+    
+	// Extra option for parallelization:
+	// If not done this way, it will run, but dump the core and say
     // "free(): double free detected in tcache 2
     // Aborted (core dumped)"
     // #pragma omp parallel for
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            inverse.data[i * n + j] = mat->data[i * n + j];
-        }
-    }
+    //for (int i = 0; i < n; i++) {
+    //    for (int j = 0; j < n; j++) {
+    //        inverse.data[i * n + j] = mat->data[i * n + j];
+    //    }
+    //}
+
 
     // Perform LU decomposition
     int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, inverse.data, n, ipiv);
@@ -163,7 +194,8 @@ Matrix matmul(const Matrix *A, const Matrix *B) {
     C.cols = B->cols;
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
 
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 
+					1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
 
     return C;
 }
@@ -216,8 +248,23 @@ float det(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
+	// Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
+	Matrix matCopy;
+	matCopy.rows = mat->rows;
+	matCopy.cols = mat->cols;
+	matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
+
+    if (matCopy.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(ipiv);
+        exit(EXIT_FAILURE);
+    }	
+
+	// Copy the original matrix values to the temporary one to avoid overwriting
+	memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
+
     // Perform in-place LU decomposition
-    int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, mat->data, n, ipiv);
+    int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, matCopy.data, n, ipiv);
     if (info != 0) {
         fprintf(stderr, "Matrix is singular and cannot compute the determinant.\n");
         free(ipiv);
@@ -226,18 +273,21 @@ float det(const Matrix *mat) {
 
     // Calculate the determinant as the product of the diagonal elements
     for (int i = 0; i < n; i++) {
-        determinant *= mat->data[i * n + i]; // Diagonal element
+        determinant *= matCopy.data[i * n + i]; // Diagonal element
         if (ipiv[i] != i + 1) { // Check for row swaps
             determinant = -determinant; // Adjust sign for row swaps
         }
     }
-
+    
+    // Free temporary allocated memory, which is not necessary
+    // to keep outside the function.
     free(ipiv);
+    freeMatrix(&matCopy);
     return determinant;
 }
 
 // Function to perform matrix element-wise multiplication
-Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
+Matrix matelem(const Matrix *A, const Matrix *B) {
     // Check if both matrices have the same dimensions
     if (A->rows != B->rows || A->cols != B->cols) {
         fprintf(stderr, "Matrices must have the same dimensions for element-wise multiplication.\n");
@@ -254,7 +304,8 @@ Matrix mat_elem_mult(const Matrix *A, const Matrix *B) {
         exit(EXIT_FAILURE);
     }
 
-    // Perform element-wise multiplication using OpenMP for parallelization in necessary
+    // Perform element-wise multiplication 
+	// Use OpenMP for parallelization in necessary
     //#pragma omp parallel for
     for (int i = 0; i < C.rows; i++) {
         for (int j = 0; j < C.cols; j++) {
@@ -287,11 +338,13 @@ Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     }
 
     // Write F matrix values into x, since they get overwritten
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < nrhs; j++) {
-            x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
-        }
-    }
+	memcpy(x.data, F->data, x.rows * x.cols * sizeof(float));
+    //for (int i = 0; i < n; i++) {
+    //    for (int j = 0; j < nrhs; j++) {
+    //        x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
+    //    }
+    //}
+
 
     // Solve the system using LAPACK's sgesv function
     info = LAPACKE_sgesv(LAPACK_ROW_MAJOR, n, nrhs, A->data, lda, ipiv, x.data, ldb);
@@ -306,27 +359,14 @@ Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
 }
 
 
-/* Function to free the allocated memory
---------------------------------------------------------
- You can also use:
- ```
-    void matvecFree(MatrixVector matvec) {
-        free(matvec.data);
-    }
-```
- But it can lead to potential memory leaks if you 
- need to manage the struct after freeing its data.
-
- This one below is more robust and aligns with 
- best practices in C programming for memory management.*/
-void freeMatrix(Matrix *matrix) {
-    free(matrix->data);
-    matrix->data = NULL;    // Avoid dangling pointer.
-}                           // Good practice to avoid 
-                            // accidental access to freed memory.
-
 //---------------------------------------------------------------------------
 // Functions for vectors
+
+// Function to free the allocated memory in a vector
+void freeVector(Vector *vector) {
+    free(vector->data);
+    vector->data = NULL; // Avoid dangling pointer
+}
 
 // Function to create a vector from array values
 Vector createVector(int size, float *values) {
@@ -340,9 +380,12 @@ Vector createVector(int size, float *values) {
     }
 
     // Populate the vector with the provided values
-    for (int i = 0; i < size; i++) {
-        vector.data[i] = values[i];
-    }
+	memcpy(vector.data, values, vector.size * sizeof(float));
+    
+	//for (int i = 0; i < size; i++) {
+    //    vector.data[i] = values[i];
+    //}
+
 
     return vector;
 }
@@ -359,7 +402,7 @@ void printVector(const Vector *vector) {
 }
 
 // Function to perform matrix-vector multiplication
-Vector mat_vec_mult(const Matrix *A, const Vector *x) {
+Vector matvec(const Matrix *A, const Vector *x) {
     // Check if the number of columns in A matches the size of the vector x
     if (A->cols != x->size) {
         fprintf(stderr, "Error: Number of columns in matrix A must match the size of vector x.\n");
@@ -379,7 +422,8 @@ Vector mat_vec_mult(const Matrix *A, const Vector *x) {
     // result = alpha * A * x + beta * result
     float alpha = 1.0f; // Scalar multiplier for A * x
     float beta = 0.0f;  // Scalar multiplier for the initial value of result
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, A->cols, x->data, 1, beta, result.data, 1);
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, 
+									A->cols, x->data, 1, beta, result.data, 1);
 
     return result;
 }
@@ -403,9 +447,10 @@ Vector linsolve(const Matrix *A, const Vector *b) {
     }
 
     // Copy the input vector b to the result vector x
-    for (int i = 0; i < x.size; i++) {
-        x.data[i] = b->data[i];
-    }
+    memcpy(x.data, b->data, x.size * sizeof(float));
+	//for (int i = 0; i < x.size; i++) {
+    //    x.data[i] = b->data[i];
+    //}
 
     // Perform LU factorization and solve the system using LAPACKE
     int *ipiv = (int *)malloc(A->rows * sizeof(int));
@@ -429,16 +474,12 @@ Vector linsolve(const Matrix *A, const Vector *b) {
     return x; // Return the result vector
 }
 
-void freeVector(Vector *vector) {
-    free(vector->data);
-    vector->data = NULL; // Avoid dangling pointer
-}
+//============================================================================
 
 int main()
 {
 	int rows = 3;
     int cols = 3;
-    int mat_dim = rows*cols;
     float A_values[9] = {   
                         1.0,  4.0, 7.0,
                         8.0,  2.0, 0.0,
@@ -448,7 +489,7 @@ int main()
     // NB! Important NOTE!!!
     // * If the matrices are small and you value simplicity, go with Matrix A.
     // * If you expect to work with larger matrices or need more control over 
-    // memory management, use Matrix *A.
+    //   memory management, use Matrix *A.
     //-----------------------------------------------------------------------
     // For first case:
     //      Matrix A = createMatrix(rows, cols, A_values);
@@ -465,7 +506,7 @@ int main()
 
     float B_values[3] = {6.0, 10.0, 3.0};
     Vector B = createVector(cols, B_values);
-    printf("Vector B:\n");
+    printf("\nVector B:\n");
     printVector(&B);
 
     float d_values[10];
@@ -475,11 +516,11 @@ int main()
         d_values[i] = i+1; 
     }
     Vector d = createVector(10, d_values);
-    printf("Vector d:\n");
+    printf("\nVector d:\n");
     printVector(&d);
 
     Matrix F = transposeMatrix(&A);
-    printf("Matrix F:\n");
+	printf("\nF = A^T\nMatrix F:\n");
     printMatrix(&F);
 
     // mat.data[0][1] ~ mat.data[0*mat.cols +1]
@@ -507,7 +548,9 @@ int main()
     // Alternative approach:
     //    x = A^-1 * b
     Matrix inv_matA = inverseMatrix(&matA);
-    //Vector vecX = mat_vec_mult(&inv_matA, &vecB);
+    Vector vecx = matvec(&inv_matA, &vecB);
+    printf("\nSolution to A*x = b using an inverse matrix:\nx =");
+    printVector(&vecx);
 
     Vector vecX = linsolve(&matA, &vecB);
     printf("\nSolution to A*x = b:\nx =");
@@ -518,10 +561,12 @@ int main()
     freeMatrix(&F);
     freeMatrix(&X);
     freeMatrix(&matA);
-    freeVector(&B);
+    freeMatrix(&inv_matA);
+	freeVector(&B);
     freeVector(&d);
     freeVector(&vecB);
     freeVector(&vecX);
+    freeVector(&vecx);
 
 	return 0;
 }
