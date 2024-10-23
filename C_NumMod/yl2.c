@@ -211,9 +211,9 @@ Matrix matadd(const Matrix *A, const Matrix *B) {
     C.rows = A->rows;
     C.cols = A->cols;
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
-
-    cblas_saxpy(C.rows * C.cols, 1.0, A->data, 1, B->data, 1);
     memcpy(C.data, B->data, C.rows * C.cols * sizeof(float));
+
+    cblas_saxpy(C.rows * C.cols, 1.0, A->data, 1, C.data, 1);
 
     return C;
 }
@@ -224,9 +224,9 @@ Matrix matscal(const Matrix *A, float scalar) {
     C.rows = A->rows;
     C.cols = A->cols;
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
-
-    cblas_sscal(C.rows * C.cols, scalar, A->data, 1);
     memcpy(C.data, A->data, C.rows * C.cols * sizeof(float));
+
+    cblas_sscal(C.rows * C.cols, scalar, C.data, 1);
 
     return C;
 }
