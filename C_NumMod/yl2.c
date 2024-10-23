@@ -1,6 +1,6 @@
 /* Compile and execute with:
- * 	$ gcc yl2.c -o yl2 -lm -llapacke -lcblas
- * 	$ ./yl2
+ *     $ gcc yl2.c -o yl2 -lm -llapacke -lcblas
+ *     $ ./yl2
  */
 
 #include <stdio.h>
@@ -12,15 +12,15 @@
 //#include <omp.h> 
 
 typedef struct{
-	float *data;
-	int    rows;
-	int    cols;
+    float *data;
+    int    rows;
+    int    cols;
 } Matrix;
 
 
 typedef struct{
-	float *data;
-	int    size;
+    float *data;
+    int    size;
 } Vector;
 
 
@@ -57,13 +57,13 @@ Matrix createMatrix(int rows, int cols, float *values) {
 
     // Populate the matrix with the provided values
     memcpy(matrix.data, values, matrix.rows * matrix.cols * sizeof(float));
-	
-	// Perform in parallel if necessary
+    
+    // Perform in parallel if necessary
     //#pragma omp parallel for    
     //for (int i = 0; i < rows * cols; i++) {
     //    matrix.data[i] = values[i];
     //}
-	
+    
 
     return matrix;
 }
@@ -146,10 +146,10 @@ Matrix inverseMatrix(const Matrix *mat) {
     }
 
     // Copy the original matrix to the inverse matrix
-	memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
+    memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
     
-	// Extra option for parallelization:
-	// If not done this way, it will run, but dump the core and say
+    // Extra option for parallelization:
+    // If not done this way, it will run, but dump the core and say
     // "free(): double free detected in tcache 2
     // Aborted (core dumped)"
     // #pragma omp parallel for
@@ -195,7 +195,7 @@ Matrix matmul(const Matrix *A, const Matrix *B) {
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 
-					1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
+                    1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
 
     return C;
 }
@@ -248,20 +248,20 @@ float det(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
-	// Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
-	Matrix matCopy;
-	matCopy.rows = mat->rows;
-	matCopy.cols = mat->cols;
-	matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
+    // Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
+    Matrix matCopy;
+    matCopy.rows = mat->rows;
+    matCopy.cols = mat->cols;
+    matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
 
     if (matCopy.data == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         free(ipiv);
         exit(EXIT_FAILURE);
-    }	
+    }    
 
-	// Copy the original matrix values to the temporary one to avoid overwriting
-	memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
+    // Copy the original matrix values to the temporary one to avoid overwriting
+    memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
 
     // Perform in-place LU decomposition
     int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, matCopy.data, n, ipiv);
@@ -305,7 +305,7 @@ Matrix matelem(const Matrix *A, const Matrix *B) {
     }
 
     // Perform element-wise multiplication 
-	// Use OpenMP for parallelization in necessary
+    // Use OpenMP for parallelization in necessary
     //#pragma omp parallel for
     for (int i = 0; i < C.rows; i++) {
         for (int j = 0; j < C.cols; j++) {
@@ -338,7 +338,7 @@ Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     }
 
     // Write F matrix values into x, since they get overwritten
-	memcpy(x.data, F->data, x.rows * x.cols * sizeof(float));
+    memcpy(x.data, F->data, x.rows * x.cols * sizeof(float));
     //for (int i = 0; i < n; i++) {
     //    for (int j = 0; j < nrhs; j++) {
     //        x.data[i * nrhs + j] = F->data[i * nrhs + j];  // Copy each element
@@ -380,9 +380,9 @@ Vector createVector(int size, float *values) {
     }
 
     // Populate the vector with the provided values
-	memcpy(vector.data, values, vector.size * sizeof(float));
+    memcpy(vector.data, values, vector.size * sizeof(float));
     
-	//for (int i = 0; i < size; i++) {
+    //for (int i = 0; i < size; i++) {
     //    vector.data[i] = values[i];
     //}
 
@@ -423,7 +423,7 @@ Vector matvec(const Matrix *A, const Vector *x) {
     float alpha = 1.0f; // Scalar multiplier for A * x
     float beta = 0.0f;  // Scalar multiplier for the initial value of result
     cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, 
-									A->cols, x->data, 1, beta, result.data, 1);
+                                    A->cols, x->data, 1, beta, result.data, 1);
 
     return result;
 }
@@ -448,7 +448,7 @@ Vector linsolve(const Matrix *A, const Vector *b) {
 
     // Copy the input vector b to the result vector x
     memcpy(x.data, b->data, x.size * sizeof(float));
-	//for (int i = 0; i < x.size; i++) {
+    //for (int i = 0; i < x.size; i++) {
     //    x.data[i] = b->data[i];
     //}
 
@@ -478,7 +478,7 @@ Vector linsolve(const Matrix *A, const Vector *b) {
 
 int main()
 {
-	int rows = 3;
+    int rows = 3;
     int cols = 3;
     float A_values[9] = {   
                         1.0,  4.0, 7.0,
@@ -520,7 +520,7 @@ int main()
     printVector(&d);
 
     Matrix F = transposeMatrix(&A);
-	printf("\nF = A^T\nMatrix F:\n");
+    printf("\nF = A^T\nMatrix F:\n");
     printMatrix(&F);
 
     // mat.data[0][1] ~ mat.data[0*mat.cols +1]
@@ -562,11 +562,11 @@ int main()
     freeMatrix(&X);
     freeMatrix(&matA);
     freeMatrix(&inv_matA);
-	freeVector(&B);
+    freeVector(&B);
     freeVector(&d);
     freeVector(&vecB);
     freeVector(&vecX);
     freeVector(&vecx);
 
-	return 0;
+    return 0;
 }

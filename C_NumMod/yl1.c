@@ -1,52 +1,52 @@
 // Compile and execute with
-// 	$ gcc yl1.c -o yl1 -lm -llapacke -lcblas -fopenmp
-// 	$ ./yl1
-//------------------------------------------------------- 	
+//     $ gcc yl1.c -o yl1 -lm -llapacke -lcblas -fopenmp
+//     $ ./yl1
+//-------------------------------------------------------     
 
-#include <stdio.h> 		// for `printf` to work
-#include <math.h> 		// mathematical functions (exp, cos, log, ...)
-#include <stdlib.h> 	// For EXIT_FAILURE to work
-#include <lapacke.h> 	// Linear Algebra PACKage in Fortran
-#include <cblas.h> 		// Basic Linear Algebra Subprograms in C	
-#include <string.h> 	// For the memcpy() command
+#include <stdio.h>      // for `printf` to work
+#include <math.h>       // mathematical functions (exp, cos, log, ...)
+#include <stdlib.h>     // For EXIT_FAILURE to work
+#include <lapacke.h>    // Linear Algebra PACKage in Fortran
+#include <cblas.h>      // Basic Linear Algebra Subprograms in C    
+#include <string.h>     // For the memcpy() command
 //#include <omp.h>        // OpenMP for parallelization
 
 typedef struct {
-	float *data;
-	int rows;
-	int cols;
+    float *data;
+    int rows;
+    int cols;
 } Matrix;
 
 typedef struct {
-	float *data;
-	int size;
+    float *data;
+    int size;
 } Vector;
 
 // Functions for Exercise 2.
 float u_func(float x, float y, float z)
 {
-	return (x*y + z/(x-4.0*y*y) + z*z )/(x*x*x + y*y - 3.0*z*x);
+    return (x*y + z/(x-4.0*y*y) + z*z )/(x*x*x + y*y - 3.0*z*x);
 }
 
 float v_func(float x, float y, float z){
-	return pow(x*y*z + x*x - (2.0*y)*(2.0*y), 5.0/(x+y));
+    return pow(x*y*z + x*x - (2.0*y)*(2.0*y), 5.0/(x+y));
 }
 
 // Function for exercise 3.
 float y_func(float x)
 {
-	return (x*x-3.0)*pow(2.0+x,4.0) - 5.0*exp(x) + 2.0*cos(x+1.0);
+    return (x*x-3.0)*pow(2.0+x,4.0) - 5.0*exp(x) + 2.0*cos(x+1.0);
 }
 
 // Function for exercise 4.
 float z_func(float u)
 {
-	return pow(u,5.0) - 3.0*pow(u,4.0) + pow(u,3.0) + 1.0;
+    return pow(u,5.0) - 3.0*pow(u,4.0) + pow(u,3.0) + 1.0;
 }
 
 // Function for exercise 5.
 float F(float x, float y){
-	return sin(x-y)/(x*x) + pow( cos(2.0*x+y)/pow((x-y),4.0), 1.0/3.0 );
+    return sin(x-y)/(x*x) + pow( cos(2.0*x+y)/pow((x-y),4.0), 1.0/3.0 );
 }
 
 //--------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ Matrix createMatrix(int rows, int cols, float *values) {
     // Populate the matrix with the provided values
     memcpy(matrix.data, values, matrix.rows * matrix.cols * sizeof(float));
     
-	// Perform in parallel if necessary
+    // Perform in parallel if necessary
     //#pragma omp parallel for    
     //for (int i = 0; i < rows * cols; i++) {
     //    matrix.data[i] = values[i];
@@ -91,7 +91,7 @@ void printM(const Matrix *matrix) {
 }
 
 // If the function is declared as 
-// 		void printm(Matrix matvec){...}
+//         void printm(Matrix matvec){...}
 // then there are a few things to consider. 
 //
 // Firstly, this implementation makes a copy of the entire 
@@ -108,9 +108,9 @@ void printM(const Matrix *matrix) {
 // is appropriate.
 //
 // Finally, the current method can be called by
-// 		printm(matrix_A);
+//         printm(matrix_A);
 // but, when using pointers, the approach should be
-// 		printm(&matrix_A);
+//         printm(&matrix_A);
 // 
 // Therefore we declare this funtion in the following matter:
 void printMatrix(const Matrix *matvec) {
@@ -190,10 +190,10 @@ Matrix inverseMatrix(const Matrix *mat) {
     }
 
     // Copy the original matrix to the inverse matrix
-	memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
+    memcpy(inverse.data, mat->data, inverse.rows * inverse.cols * sizeof(float));
     
-	// Extra option for parallelization:
-	// If not done this way, it will run, but dump the core and say
+    // Extra option for parallelization:
+    // If not done this way, it will run, but dump the core and say
     // "free(): double free detected in tcache 2
     // Aborted (core dumped)"
     // #pragma omp parallel for
@@ -238,7 +238,7 @@ Matrix matmul(const Matrix *A, const Matrix *B) {
     C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C.rows, C.cols, A->cols, 
-					 1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
+                     1.0, A->data, A->cols, B->data, B->cols, 0.0, C.data, C.rows);
 
     return C;
 }
@@ -291,20 +291,20 @@ float det(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
-	// Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
-	Matrix matCopy;
-	matCopy.rows = mat->rows;
-	matCopy.cols = mat->cols;
-	matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
+    // Need to make a copy of 'mat', bc sgetrf() modifies the input matrix
+    Matrix matCopy;
+    matCopy.rows = mat->rows;
+    matCopy.cols = mat->cols;
+    matCopy.data = (float *)malloc(matCopy.rows * matCopy.cols * sizeof(float));
 
     if (matCopy.data == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         free(ipiv);
         exit(EXIT_FAILURE);
-    }	
+    }    
 
-	// Copy the original matrix values to the temporary one to avoid overwriting
-	memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
+    // Copy the original matrix values to the temporary one to avoid overwriting
+    memcpy(matCopy.data, mat->data, matCopy.rows * matCopy.cols * sizeof(float));
 
     // Perform in-place LU decomposition
     int info = LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, matCopy.data, n, ipiv);
@@ -323,7 +323,7 @@ float det(const Matrix *mat) {
     }
 
     free(ipiv);
-	freeMatrix(&matCopy); // Temporary. Not necessary outside the function.
+    freeMatrix(&matCopy); // Temporary. Not necessary outside the function.
     return determinant;
 }
 
@@ -378,10 +378,10 @@ Vector createVector(int size, float *values) {
     }
 
     // Populate the vector with the provided values 
-	memcpy(vector.data, values, vector.size * sizeof(float));
+    memcpy(vector.data, values, vector.size * sizeof(float));
     
-	// Paralellize if necessary
-	//#pragma omp parallel for
+    // Paralellize if necessary
+    //#pragma omp parallel for
     //for (int i = 0; i < size; i++) {
     //    vector.data[i] = values[i];
     //}
@@ -422,7 +422,7 @@ Vector matvec(const Matrix *A, const Vector *x) {
     float alpha = 1.0f; // Scalar multiplier for A * x
     float beta = 0.0f;  // Scalar multiplier for the initial value of result
     cblas_sgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, 
-								   A->cols, x->data, 1, beta, result.data, 1);
+                                   A->cols, x->data, 1, beta, result.data, 1);
 
     return result;
 }
@@ -432,114 +432,114 @@ Vector matvec(const Matrix *A, const Vector *x) {
 
 int main()
 {
-	float x, y, z, w, u, v;
+    float x, y, z, w, u, v;
 
-	printf("Exercise 1.\n");
+    printf("Exercise 1.\n");
 
-	x = 13.0;
-	y =  7.0;
-	z = sqrt(x);
-	w = 6.0*x*y - x/y;
+    x = 13.0;
+    y =  7.0;
+    z = sqrt(x);
+    w = 6.0*x*y - x/y;
 
-	printf("z = %.4f\nw = %.4f\n", z, w);
+    printf("z = %.4f\nw = %.4f\n", z, w);
 
-	printf("\nExercise 2.\n");
-	x =  2.0;
-	y = -1.0;
-	z =  5.0;
-	u = u_func(x, y, z);
-	v = v_func(x, y, z);
-	printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
-	printf("u = %.4f\nv = %.4f\n\n", u, v);
+    printf("\nExercise 2.\n");
+    x =  2.0;
+    y = -1.0;
+    z =  5.0;
+    u = u_func(x, y, z);
+    v = v_func(x, y, z);
+    printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
+    printf("u = %.4f\nv = %.4f\n\n", u, v);
 
-	x = -6.0;
-	y =  5.0;
-	z = -2.0;
-	u = u_func(x, y, z);
-	v = v_func(x, y, z);
-	printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
-	printf("u = %.4f\nv = %.4e\n", u, v);
-	
-	printf("\nExercise 3.\n");
-	float x_vec[3] = {-1.0, 4.0, 3.0};
-	int i;
+    x = -6.0;
+    y =  5.0;
+    z = -2.0;
+    u = u_func(x, y, z);
+    v = v_func(x, y, z);
+    printf("x = %.1f, y = %.1f, z = %.1f\n", x, y, z);
+    printf("u = %.4f\nv = %.4e\n", u, v);
+    
+    printf("\nExercise 3.\n");
+    float x_vec[3] = {-1.0, 4.0, 3.0};
+    int i;
 
-	for (i = 0; i < 3; i++)
-	{
-		printf("y(%.0f) = %.4e\n", x_vec[i], y_func(x_vec[i]) );
-	}
+    for (i = 0; i < 3; i++)
+    {
+        printf("y(%.0f) = %.4e\n", x_vec[i], y_func(x_vec[i]) );
+    }
 
-	printf("\nExercise 4.\n");
-	float u_vec[2] = {2.0, 8.0};
-	for (i = 0; i < 2; i++)
-	{
-		printf("z(%.0f) = %.4f\n", u_vec[i], z_func(u_vec[i]) );
-	}
+    printf("\nExercise 4.\n");
+    float u_vec[2] = {2.0, 8.0};
+    for (i = 0; i < 2; i++)
+    {
+        printf("z(%.0f) = %.4f\n", u_vec[i], z_func(u_vec[i]) );
+    }
 
-	printf("\nExercise 5.\n");
-	printf("F(50, -30) = %.4f\n", F(50.0, -30.0));
-	
+    printf("\nExercise 5.\n");
+    printf("F(50, -30) = %.4f\n", F(50.0, -30.0));
+    
 
-	printf("\nExercise 6.\n");
-	int rows, cols;
-	rows = 3;
-	cols = 3;
+    printf("\nExercise 6.\n");
+    int rows, cols;
+    rows = 3;
+    cols = 3;
 
-	// Declare and print values for the A matrix
-	float mat_values[9] = {3, 12, 52, 4, 6, -11, -2, 7, 2};
-	Matrix A = createMatrix(rows, cols, mat_values);
-	printf("Matrix A:\n");
-	//printM(&A);
-	printMatrix(&A);
+    // Declare and print values for the A matrix
+    float mat_values[9] = {3, 12, 52, 4, 6, -11, -2, 7, 2};
+    Matrix A = createMatrix(rows, cols, mat_values);
+    printf("Matrix A:\n");
+    //printM(&A);
+    printMatrix(&A);
 
-	// Declare and print values for the b vector
-	float vec_values[3] = {13.0, -2.0, 5.0};
-	int size = sizeof(vec_values) / sizeof(vec_values[0]); // Calculate the size of the vector
-	//printf("size = %d\n", size);
-	Vector b = createVector(size, vec_values);
-	printf("Vector b: ");
-	printVector(&b);
+    // Declare and print values for the b vector
+    float vec_values[3] = {13.0, -2.0, 5.0};
+    int size = sizeof(vec_values) / sizeof(vec_values[0]); // Calculate the size of the vector
+    //printf("size = %d\n", size);
+    Vector b = createVector(size, vec_values);
+    printf("Vector b: ");
+    printVector(&b);
 
-	// Find the transposed and inverse matrix of matrix A
-	Matrix A_T   = transposeMatrix(&A);
-	Matrix inv_A = inverseMatrix(&A);
+    // Find the transposed and inverse matrix of matrix A
+    Matrix A_T   = transposeMatrix(&A);
+    Matrix inv_A = inverseMatrix(&A);
 
-	
-	// B = 2*A^T + A^-1
-	Matrix twoTimesAT = matscal(&A_T, 2.0);
-	Matrix B = matadd( &twoTimesAT, &inv_A );
-	printf("\nMatrix B: \n");
-	printMatrix(&B);
+    
+    // B = 2*A^T + A^-1
+    Matrix twoTimesAT = matscal(&A_T, 2.0);
+    Matrix B = matadd( &twoTimesAT, &inv_A );
+    printf("\nMatrix B: \n");
+    printMatrix(&B);
 
-	// C = A*B
-	Matrix C = matmul(&A, &B);
-	printf("\nMatrix C: \n");
-	printMatrix(&C);
-	
-	// det(A)
-	printf("\nDeterminant of matrix A: ");
-	float det_A = det(&A);
-	printf("%.4f.\n\n", det_A);
-	
-	Vector d = matvec(&A, &b);
-	printf("Vector d: \n");
-	printVector(&d);
+    // C = A*B
+    Matrix C = matmul(&A, &B);
+    printf("\nMatrix C: \n");
+    printMatrix(&C);
+    
+    // det(A)
+    printf("\nDeterminant of matrix A: ");
+    float det_A = det(&A);
+    printf("%.4f.\n\n", det_A);
+    
+    Vector d = matvec(&A, &b);
+    printf("Vector d: \n");
+    printVector(&d);
 
-	// D = A.*B
-	Matrix D = matelem(&A, &B);
-	printf("\nMatrix D:\n");
-	printMatrix(&D);
+    // D = A.*B
+    Matrix D = matelem(&A, &B);
+    printf("\nMatrix D:\n");
+    printMatrix(&D);
 
-	// Free the allocated memory
-	freeMatrix(&A);
-	freeMatrix(&B);
-	freeMatrix(&C);
-	freeMatrix(&D);
-	freeMatrix(&A_T);
-	freeMatrix(&inv_A);
-	freeMatrix(&twoTimesAT);
-	freeVector(&b);
-	freeVector(&d);
+    // Free the allocated memory
+    freeMatrix(&A);
+    freeMatrix(&B);
+    freeMatrix(&C);
+    freeMatrix(&D);
+    freeMatrix(&A_T);
+    freeMatrix(&inv_A);
+    freeMatrix(&twoTimesAT);
+    freeVector(&b);
+    freeVector(&d);
 
-	return 0;
+    return 0;
 }
