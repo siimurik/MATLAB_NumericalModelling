@@ -2,6 +2,10 @@
 #define SPLASH_H
 
 /****************************************************************************/
+/*  Officaly known as                                                       */
+/*    SPLASH - Single Precision for Linear Algebra and Scientific Handling  */
+/*--------------------------------------------------------------------------*/
+/*  Or unoffically known as                                                 */
 /*    SPLASH - Siim’s Package for Linear Algebra and Scientific Handling    */
 /****************************************************************************/
 
