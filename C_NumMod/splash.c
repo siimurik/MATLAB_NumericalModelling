@@ -66,27 +66,27 @@ Matrix createMatrix(int rows, int cols, float *values) {
 }
 
 // Function for printing a matrix
-void printMatrix(const Matrix *matvec) {
+void printMatrix(const Matrix *mat) {
     int max_print_size = 6;
 
     printf("[\n");
 
-    if (matvec->rows <= max_print_size) {
-        for (int i = 0; i < matvec->rows; i++) {
+    if (mat->rows <= max_print_size) {
+        for (int i = 0; i < mat->rows; i++) {
             printf("  [");
-            for (int j = 0; j < matvec->cols; j++) {
-                printf("%9.4f", matvec->data[i * matvec->cols + j]);
-                if (j < matvec->cols - 1) printf(", ");
+            for (int j = 0; j < mat->cols; j++) {
+                printf("%9.4f", mat->data[i * mat->cols + j]);
+                if (j < mat->cols - 1) printf(", ");
             }
             printf("]");
-            if (i < matvec->rows - 1) printf(",\n");
+            if (i < mat->rows - 1) printf(",\n");
         }
     } else {
         for (int i = 0; i < max_print_size; i++) {
             printf("  [");
             for (int j = 0; j < max_print_size; j++) {
-                printf("%9.4f", matvec->data[i * matvec->cols + j]);
-                if (j < matvec->cols - 1) printf(", ");
+                printf("%9.4f", mat->data[i * mat->cols + j]);
+                if (j < mat->cols - 1) printf(", ");
             }
             printf(" ...");
             printf("]");
@@ -364,10 +364,9 @@ Matrix matrand(int rows, int cols) {
 
     float min = 0.0;
     float max = 1.0;
-
-    for (int i = 0; i < rows * cols; i++) {
-        mat.data[i] = min + (max-min) * ((float)rand()/RAND_MAX);
-    }
+	for (int i = 0; i < rows * cols; i++) {
+	    mat.data[i] = min + (max - min) * ((float)rand() / (float)RAND_MAX);
+	}
 
     return mat;
 }
@@ -390,7 +389,8 @@ Matrix compan(const float *coefficients, int size) {
     Matrix C;
     C.rows = n;
     C.cols = n;
-    C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
+	// Use calloc to initialize all values to 0
+    C.data = (float *)calloc(C.rows * C.cols, sizeof(float));
 
     if (C.data == NULL) {
         fprintf(stderr, "Memory allocation failed for companion matrix.\n");
@@ -408,13 +408,6 @@ Matrix compan(const float *coefficients, int size) {
         C.data[i * C.cols + (i - 1)] = 1.0;
     }
 
-    // Fill the rest with zeros (already initialized to 0)
-    for (int i = 1; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-            C.data[i * C.cols + j] = 0.0; // Explicitly set to 0 (optional)
-        }
-    }
-
     return C;
 }
 
@@ -425,49 +418,54 @@ void eig(const Matrix *matrix) {
         return;
     }
 
-    int n = matrix->rows;
-    float *A = (float *)malloc(n * n * sizeof(float));
-    float *WR = (float *)malloc(n * sizeof(float)); // Real parts of eigenvalues
-    float *WI = (float *)malloc(n * sizeof(float)); // Imaginary parts of eigenvalues
-    float *VR = (float *)malloc(n * n * sizeof(float)); // Right eigenvectors
-    float *WORK = (float *)malloc(4 * n * sizeof(float)); // Workspace
-    int LWORK = 4 * n;
+    char  JOBVL = 'N';
+    char  JOBVR = 'V';
+    int   N     = matrix->rows;
+    int   LDA   = matrix->cols;
+    float *A    = (float *)malloc(LDA * N * sizeof(float));
+    float *WR   = (float *)malloc(N * sizeof(float)); // Real parts of eigenvalues
+    float *WI   = (float *)malloc(N * sizeof(float)); // Imaginary parts of eigenvalues
+    int   LDVL  = matrix->rows;
+    int   LDVR  = matrix->rows;
+    float *VR   = (float *)malloc(LDVR * N * sizeof(float)); // Right eigenvectors
     int INFO;
 
+    if (A == NULL || WR == NULL || WI == NULL || VR == NULL) {
+        fprintf(stderr, "Failed to allocate memory.\n");
+        goto cleanup;
+    }
+
     // Copy matrix data to LAPACK format
-    memcpy(A, matrix->data, n * n * sizeof(float));
-    //for (int i = 0; i < n; i++) {
-    //    for (int j = 0; j < n; j++) {
-    //        A[i * n + j] = matrix->data[i * matrix->cols + j];
-    //    }
-    //}
+    memcpy(A, matrix->data, N * N * sizeof(float));
 
     // Compute eigenvalues and right eigenvectors
-    INFO = LAPACKE_sgeev(LAPACK_ROW_MAJOR, 'N', 'V', n, A, n, WR, WI, NULL, n, VR, n);
+    //INFO = LAPACKE_sgeev(LAPACK_COL_MAJOR, JOBVL, JOBVR, N, A, LDA, WR, WI, NULL, N, VR, N);
+	INFO = LAPACKE_sgeev( LAPACK_COL_MAJOR, JOBVL, JOBVR, N, A, LDA, WR, WI, NULL, LDVL, VR, LDVR);
 
     if (INFO > 0) {
         fprintf(stderr, "Error in eigenvalue computation: %d\n", INFO);
-    } else {
-        printf("Eigenvalues:\n");
-        for (int i = 0; i < n; i++) {
-            if (WI[i] == 0) {
-                // Real eigenvalue
-                printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
-            } else {
-                // Complex eigenvalue
-                printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
-                printf("   %7.4f - %7.4fi\n", WR[i], WI[i]);
-                i++; // Skip the next one as it's a pair
-            }
+        goto cleanup;
+    }
+
+    // Print eigenvalues
+    printf("Eigenvalues:\n");
+    for (int i = 0; i < N; i++) {
+        if (WI[i] == 0) {
+            // Real eigenvalue
+            printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
+        } else {
+            // Complex eigenvalue
+            printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
+            printf("   %7.4f - %7.4fi\n", WR[i], WI[i]);
+            i++; // Skip the next one as it's a pair
         }
     }
 
-    // Free allocated memory
+cleanup:
     free(A);
     free(WR);
     free(WI);
     free(VR);
-    free(WORK);
 }
 
 //=====================================================================================
