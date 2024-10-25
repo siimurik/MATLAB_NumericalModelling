@@ -15,7 +15,7 @@
 #include <string.h>
 #include <lapacke.h>
 #include <cblas.h>
-#include <complex.h>
+//#include <omp.h> 
 
 typedef struct {
     float *data;
@@ -49,5 +49,9 @@ Vector  createVector(int size, float *values);
 void    printVector(const Vector *vector);
 Vector  matvec(const Matrix *A, const Vector *x);
 Vector  linsolve(const Matrix *A, const Vector *b);
+Vector  vecadd(const Vector *A, const Vector *B);
+Vector  vecscal(const Vector *A, float scalar);
+Vector  vecrand(int dim);
+Vector  vecelem(const Vector *A, const Vector *B);
 
 #endif
