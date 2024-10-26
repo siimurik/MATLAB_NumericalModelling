@@ -1,6 +1,6 @@
 // Compile and execute with:
-// gcc -o yl3 yl3.c splash.c -llapacke -lblas -lm
-//
+//  gcc -o yl3 yl3.c splash.c -llapacke -lblas -lm
+//  gcc -o yl3 yl3.c dashpack.c -fopenmp -llapacke -lblas -lm
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,25 +9,26 @@
 #include <cblas.h>
 #include <math.h>
 #include <time.h>
-#include "splash.h"
+#include "dashpack.h"
+//#include "splash.h"
 
 // Define clock default starting value
 #define CLOCK_MONOTONIC 1
 
 // Function pointer type for the iteration function
-typedef float (*iterFunc)(float);
+//typedef double (*iterFunc)(double);
 
-float g (float x)
+double g (double x)
 {
     return cbrt(8.0*x - 2.0); // cbrt - cubreroot
 }
 
 // The void C function
-void him(iterFunc g, float x_init, float tol, int max_iter, float *x_new, int *count) {
+void him(double (*g)(double), double x_init, double tol, int max_iter, double *x_new, int *count) {
 
     // Initialize variables
     *x_new = x_init;
-    float x_old = x_init - 1.0; // Initial value different from x_new
+    double x_old = x_init - 1.0; // Initial value different from x_new
     *count = 0;
 
     // Iteration process
@@ -47,7 +48,7 @@ void him(iterFunc g, float x_init, float tol, int max_iter, float *x_new, int *c
 int main()
 {
 	// Finding the roots of a polynomial x^3 − 8^x + 2 = 0
-	float r[4] = {1.0, 0.0, 8.0, 2.0};
+	double r[4] = {1.0, 0.0, 8.0, 2.0};
 	int dim = sizeof(r) / sizeof(r[0]); 
 	Matrix matCompan = compan(r, dim);
 	printf("Companion matrix:\n");
@@ -59,19 +60,19 @@ int main()
 	freeMatrix(&matCompan);
 
     // Harilik iteratsioonimeetod
-    float x_init = -3.0;
-    float tol    = 1E-4;
+    double x_init = -3.0;
+    double tol    = 1E-4;
     int max_iter = 1000; 
     int count;
-    float x_new;
+    double x_new;
     him(g, x_init, tol, max_iter, &x_new, &count);
     printf("\nSolution: %f, Iterations: %d\n", x_new, count);
     ////////////////////////////////////////////////////////
     // Additional testing
     //omp_set_num_threads(8);
     struct timespec start, stop;
-    float vec1Values[] = {9.0, 8.0, 7.0, 6.0};
-	float vec2Values[] = {1.0, 2.0, 3.0, 4.0};
+    double vec1Values[] = {9.0, 8.0, 7.0, 6.0};
+	double vec2Values[] = {1.0, 2.0, 3.0, 4.0};
 	int length = sizeof(vec1Values) / sizeof(vec1Values[0]);
 	//printf("Length of vector: %d\n", length);
 

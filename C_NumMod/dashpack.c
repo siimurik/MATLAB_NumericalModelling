@@ -1,13 +1,22 @@
-/***********************************************************************************/
-/*    DASHPACK - Double-precision Algebraic Solutions for High-performance PACKage */
-/***********************************************************************************/
-
+/****************************************************************************/
+/*  Officaly known as                                                       */
+/*    SPLASH - Single Precision for Linear Algebra and Scientific Handling  */
+/*--------------------------------------------------------------------------*/
+/*  Or unoffically known as                                                 */
+/*    SPLASH - Siim’s Package for Linear Algebra and Scientific Handling    */
+/****************************************************************************/
+/*  
+    $ gcc -c splash.c -o splash.o
+    $ ar rcs libsplash.a splash.o
+*/
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <lapacke.h>
 #include <cblas.h>
+#include <math.h>
+#include <omp.h> 
 
 typedef struct{
     double *data;
@@ -60,7 +69,6 @@ Matrix createMatrix(int rows, int cols, double *values) {
     //for (int i = 0; i < rows * cols; i++) {
     //    matrix.data[i] = values[i];
     //}
-    
 
     return matrix;
 }
@@ -76,7 +84,7 @@ void printMatrix(const Matrix *mat) {
         for (int i = 0; i < mat->rows; i++) {
             printf("  [");
             for (int j = 0; j < mat->cols; j++) {
-                printf("%7.4f", mat->data[i * mat->cols + j]);
+                printf("%7.4lf", mat->data[i * mat->cols + j]);
                 if (j < mat->cols - 1) printf(", ");
             }
             printf("]");
@@ -87,7 +95,7 @@ void printMatrix(const Matrix *mat) {
         for (int i = 0; i < max_print_size && i < mat->rows; i++) {
             printf("  [");
             for (int j = 0; j < max_print_size && j < mat->cols; j++) {
-                printf("%7.4f", mat->data[i * mat->cols + j]);
+                printf("%7.4lf", mat->data[i * mat->cols + j]);
                 if (j < max_print_size - 1 && j < mat->cols - 1) printf(", ");
             }
             // Print ellipsis for omitted columns
@@ -97,7 +105,7 @@ void printMatrix(const Matrix *mat) {
             // Last elements of the top 3 rows
             for (int j = mat->cols - 3; j < mat->cols; j++) {
                 if (j >= 0) { // Ensure we don't go out of bounds
-                    printf("%7.4f", mat->data[i * mat->cols + j]);
+                    printf("%7.4lf", mat->data[i * mat->cols + j]);
                     if (j < mat->cols - 1) printf(", ");
                 }
             }
@@ -114,7 +122,7 @@ void printMatrix(const Matrix *mat) {
         for (int i = mat->rows - max_print_size; i < mat->rows; i++) {
             printf("  [");
             for (int j = 0; j < max_print_size && j < mat->cols; j++) {
-                printf("%7.4f", mat->data[i * mat->cols + j]);
+                printf("%7.4lf", mat->data[i * mat->cols + j]);
                 if (j < max_print_size - 1 && j < mat->cols - 1) printf(", ");
             }
             // Print ellipsis for omitted columns
@@ -124,7 +132,7 @@ void printMatrix(const Matrix *mat) {
             // Last elements of the bottom 3 rows
             for (int j = mat->cols - 3; j < mat->cols; j++) {
                 if (j >= 0) { // Ensure we don't go out of bounds
-                    printf("%7.4f", mat->data[i * mat->cols + j]);
+                    printf("%7.4lf", mat->data[i * mat->cols + j]);
                     if (j < mat->cols - 1) printf(", ");
                 }
             }
@@ -148,16 +156,42 @@ Matrix transposeMatrix(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
+    int i, j;
     // Perform transposition in parallel if necessary
     //#pragma omp parallel for
-    for (int i = 0; i < mat->rows; i++) {
-        for (int j = 0; j < mat->cols; j++) {
+    for (i = 0; i < mat->rows; i++) {
+        for (j = 0; j < mat->cols; j++) {
             transposed.data[j * transposed.rows + i] = mat->data[i * mat->cols + j];
         }
     }
 
     return transposed;
 }
+
+// Function to find the transposed matrix
+Matrix transposeMatrixPara(const Matrix *mat) {
+    Matrix transposed;
+    transposed.rows = mat->cols;
+    transposed.cols = mat->rows;
+    transposed.data = (double *)malloc(transposed.rows * transposed.cols * sizeof(double));
+
+    if (transposed.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i, j;
+    // Perform transposition in parallel on the rows
+    #pragma omp parallel for private(j) 
+    for (i = 0; i < mat->rows; i++) {
+        for (j = 0; j < mat->cols; j++) {
+            transposed.data[j * transposed.rows + i] = mat->data[i * mat->cols + j];
+        }
+    }
+
+    return transposed;
+}
+
 
 // Function to compute the inverse matrix using LAPACK
 Matrix inverseMatrix(const Matrix *mat) {
@@ -191,7 +225,6 @@ Matrix inverseMatrix(const Matrix *mat) {
     //        inverse.data[i * n + j] = mat->data[i * n + j];
     //    }
     //}
-
 
     // Perform LU decomposition
     int info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, n, n, inverse.data, n, ipiv);
@@ -342,8 +375,6 @@ Matrix matelem(const Matrix *A, const Matrix *B) {
     }
 
     // Perform element-wise multiplication 
-    // Use OpenMP for parallelization in necessary
-    //#pragma omp parallel for
     for (int i = 0; i < C.rows; i++) {
         for (int j = 0; j < C.cols; j++) {
             C.data[i * C.cols + j] = A->data[i * A->cols + j] * B->data[i * B->cols + j];
@@ -352,7 +383,38 @@ Matrix matelem(const Matrix *A, const Matrix *B) {
 
     return C;
 }
+///*
+// Function to perform matrix element-wise multiplication
+Matrix matelemPara(const Matrix *A, const Matrix *B) {
+    // Check if both matrices have the same dimensions
+    if (A->rows != B->rows || A->cols != B->cols) {
+        fprintf(stderr, "Matrices must have the same dimensions for element-wise multiplication.\n");
+        exit(EXIT_FAILURE);
+    }
 
+    Matrix C;
+    C.rows = A->rows;
+    C.cols = A->cols; // Result has the same dimensions as A and B
+    C.data = (double *)malloc(C.rows * C.cols * sizeof(double));
+
+    if (C.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i, j;
+    // Perform element-wise multiplication 
+    // Use OpenMP for parallelization for HUGE matrices
+    #pragma omp parallel for default(none) shared(A, B, C) private(i, j) collapse(2)
+    for (i = 0; i < C.rows; i++) {
+        for (j = 0; j < C.cols; j++) {
+            C.data[i * C.cols + j] = A->data[i * A->cols + j] * B->data[i * B->cols + j];
+        }
+    }
+
+    return C;
+}
+//*/
 // Function to solve an overdetermined system of linear equations
 Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     // Prepare the LAPACK parameters
@@ -382,6 +444,7 @@ Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     //    }
     //}
 
+
     // Solve the system using LAPACK's sgesv function
     info = LAPACKE_dgesv(LAPACK_ROW_MAJOR, n, nrhs, A->data, lda, ipiv, x.data, ldb);
 
@@ -401,6 +464,11 @@ Matrix matrand(int rows, int cols) {
     mat.cols = cols;
     mat.data = (double *)malloc(rows * cols * sizeof(double));
 
+    if (mat.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     double min = 0.0;
     double max = 1.0;
 	for (int i = 0; i < rows * cols; i++) {
@@ -409,7 +477,37 @@ Matrix matrand(int rows, int cols) {
 
     return mat;
 }
+///*
+// Function to generate a new Matrix with random values
+Matrix matrandPara(int rows, int cols) {
+    Matrix mat;
+    mat.rows = rows;
+    mat.cols = cols;
+    mat.data = (double *)malloc(rows * cols * sizeof(double));
 
+    if (mat.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    double min = 0.0;
+    double max = 1.0;
+    // Parallelize the random number generation
+    #pragma omp parallel
+    {
+        // Each thread will have its own random seed
+        unsigned int seed = omp_get_thread_num(); // Use thread number as seed
+
+        #pragma omp for
+        for (int i = 0; i < rows * cols; i++) {
+            // Generate a random number using the thread-local seed
+            mat.data[i] = min + (max - min) * ((double)rand_r(&seed) / (double)RAND_MAX);
+        }
+    }
+
+    return mat;
+}
+//*/
 // Function to create the companion matrix:
 Matrix compan(const double *coefficients, int size) {
     // Input validation
@@ -421,6 +519,11 @@ Matrix compan(const double *coefficients, int size) {
     if (coefficients[0] == 0) {
         fprintf(stderr, "The first coefficient in the array must not be zero.\n");
         return (Matrix){NULL, 0, 0}; // Return an empty matrix
+    }
+
+    if (fabs(coefficients[0]) < 1e-12) {
+        fprintf(stderr, "The leading coefficient is too close to zero.\n");
+        return (Matrix){NULL, 0, 0};
     }
 
     // Create the companion matrix
@@ -491,11 +594,11 @@ void eig(const Matrix *matrix) {
     for (int i = 0; i < N; i++) {
         if (WI[i] == 0) {
             // Real eigenvalue
-            printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
+            printf("   %7.4lf + %7.4fi\n", WR[i], WI[i]);
         } else {
             // Complex eigenvalue
-            printf("   %7.4f + %7.4fi\n", WR[i], WI[i]);
-            printf("   %7.4f - %7.4fi\n", WR[i], WI[i]);
+            printf("   %7.4lf + %7.4fi\n", WR[i], WI[i]);
+            printf("   %7.4lf - %7.4fi\n", WR[i], WI[i]);
             i++; // Skip the next one as it's a pair
         }
     }
@@ -547,7 +650,7 @@ void printVector(const Vector *vector) {
     if (vector->size > 10) {
         // Print the first three elements
         for (int i = 0; i < 3; i++) {
-            printf("%.4f", vector->data[i]);
+            printf("%.4lf", vector->data[i]);
             if (i < 2) {
                 printf(", ");
             }
@@ -556,12 +659,12 @@ void printVector(const Vector *vector) {
         printf(", ...");
         // Print the last three elements
         for (int i = vector->size - 3; i < vector->size; i++) {
-            printf(", %.4f", vector->data[i]);
+            printf(", %.4lf", vector->data[i]);
         }
     } else {
         // Print all elements if size is 10 or less
         for (int i = 0; i < vector->size; i++) {
-            printf("%.4f", vector->data[i]);
+            printf("%.4lf", vector->data[i]);
             if (i < vector->size - 1) {
                 printf(", ");
             }
@@ -590,8 +693,8 @@ Vector matvec(const Matrix *A, const Vector *x) {
 
     // Perform matrix-vector multiplication using BLAS
     // result = alpha * A * x + beta * result
-    double alpha = 1.0f; // Scalar multiplier for A * x
-    double beta = 0.0f;  // Scalar multiplier for the initial value of result
+    double alpha = 1.0; // Scalar multiplier for A * x
+    double beta = 0.0;  // Scalar multiplier for the initial value of result
     cblas_dgemv(CblasRowMajor, CblasNoTrans, A->rows, A->cols, alpha, A->data, 
                                     A->cols, x->data, 1, beta, result.data, 1);
 
@@ -658,7 +761,7 @@ Vector vecadd(const Vector *A, const Vector *B) {
 
     // Constant times a vector plus a vector
     // ALPHA * A + C;   ALPHA = 1.0;
-    cblas_saxpy(C.size, 1.0, A->data, 1, C.data, 1);
+    cblas_daxpy(C.size, 1.0, A->data, 1, C.data, 1);
 
     return C;
 }
@@ -671,16 +774,21 @@ Vector vecscal(const Vector *A, double scalar) {
     memcpy(C.data, A->data, C.size * sizeof(double));
 
     // Scales a vector by a constant
-    cblas_sscal(C.size, scalar, C.data, 1);
+    cblas_dscal(C.size, scalar, C.data, 1);
 
     return C;
 }
 
-// Generate a vectro full of random values ranging from 0...1
-Vector vecrand(int dim){
-	Vector vec;
-	vec.size = dim;
-	vec.data = (double *)malloc(dim * sizeof(double));
+// Create a vector full of random values
+Vector vecrand(int dim) {
+    Vector vec;
+    vec.size = dim;
+    vec.data = (double *)malloc(dim * sizeof(double));
+
+    if (vec.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     double min = 0.0;
     double max = 1.0;
@@ -690,3 +798,89 @@ Vector vecrand(int dim){
 
     return vec;
 }
+///*
+// Create a vector full of random values in parallel
+Vector vecrandPara(int dim) {
+    Vector vec;
+    vec.size = dim;
+    vec.data = (double *)malloc(dim * sizeof(double));
+
+    if (vec.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    double min = 0.0;
+    double max = 1.0;
+    
+    // Parallelize the random number generation
+    #pragma omp parallel
+    {
+        // Each thread will have its own random seed
+        unsigned int seed = omp_get_thread_num(); // Use thread number as seed
+
+        #pragma omp for
+        for (int i = 0; i < vec.size; i++) {
+            // Generate a random number using the thread-local seed
+            vec.data[i] = min + (max - min) * ((double)rand_r(&seed) / (double)RAND_MAX);
+        }
+    }
+    
+    return vec;
+}
+//*/
+// Function to perform matrix element-wise multiplication
+Vector vecelem(const Vector *A, const Vector *B) {
+    // Check if both vectors have the same dimensions
+    if (A->size != B->size) {
+        fprintf(stderr, "Vectors must have the same dimensions for element-wise multiplication.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    Vector C;
+    C.size = A->size; // Result has the same dimensions as A and B
+    C.data = (double *)malloc(C.size * sizeof(double));
+
+    if (C.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i;
+    // Perform element-wise multiplication
+	for (i = 0; i < C.size; i++) {
+        C.data[i] = A->data[i] * B->data[i];
+        //printf("Thread %d processing index %d\n", omp_get_thread_num(), i);
+    }
+
+    return C;
+}
+///*
+// Function to perform matrix element-wise multiplication in parallel
+Vector vecelemPara(const Vector *A, const Vector *B) {
+    // Check if both vectors have the same dimensions
+    if (A->size != B->size) {
+        fprintf(stderr, "Vectors must have the same dimensions for element-wise multiplication.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    Vector C;
+    C.size = A->size; // Result has the same dimensions as A and B
+    C.data = (double *)malloc(C.size * sizeof(double));
+
+    if (C.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i;
+    // Perform element-wise multiplication using OpenMP for parallelization
+    #pragma omp parallel for default(none) shared(A, B, C) private(i)	
+	for (i = 0; i < C.size; i++) {
+        C.data[i] = A->data[i] * B->data[i];
+        //printf("Thread %d processing index %d\n", omp_get_thread_num(), i);
+    }
+
+    return C;
+}
+//*/

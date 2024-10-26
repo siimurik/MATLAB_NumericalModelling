@@ -1,5 +1,7 @@
 // Compile and execute with:
 //  $ gcc -O3 -fopenmp -std=c99 test_vecadd.c -o test -llapacke -lblas
+//  $ gcc test_vecadd.c  -L. -lsplash -llapacke -lblas -o test
+//  $ gcc test_vecadd.c splash.c -o test -llapacke -lblas
 //
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,11 +11,12 @@
 #include <cblas.h>
 #include <time.h>
 #include <omp.h>
+#include "splash.h"
 //#include <immintrin.h> // For SIMD intrinsics
 
 // Define clock default starting value
 #define CLOCK_MONOTONIC 1
-
+/*
 typedef struct {
     float *data;
     int rows;
@@ -101,9 +104,25 @@ Vector vecrand(int dim) {
 	for (int i = 0; i < vec.size; i++) {
 	    vec.data[i] = min + (max - min) * ((float)rand() / (float)RAND_MAX);
 	}
-    /*
-    // Parallelize the random number generation
-    #pragma omp parallel
+
+    return vec;
+}
+
+Vector vecrand(int dim) {
+    Vector vec;
+    vec.size = dim;
+    vec.data = (float *)malloc(dim * sizeof(float));
+
+    if (vec.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    float min = 0.0;
+    float max = 1.0;
+    
+    // llelize the random number generation
+    #pragma omp llel
     {
         // Each thread will have its own random seed
         unsigned int seed = omp_get_thread_num(); // Use thread number as seed
@@ -114,7 +133,7 @@ Vector vecrand(int dim) {
             vec.data[i] = min + (max - min) * ((float)rand_r(&seed) / (float)RAND_MAX);
         }
     }
-    */
+    
     return vec;
 }
 
@@ -251,9 +270,26 @@ Matrix matrand(int rows, int cols) {
 	for (int i = 0; i < rows * cols; i++) {
 	    mat.data[i] = min + (max - min) * ((float)rand() / (float)RAND_MAX);
 	}
-    /*
-    // Parallelize the random number generation
-    #pragma omp parallel
+
+    return mat;
+}
+
+// Function to generate a new Matrix with random values
+Matrix matrand(int rows, int cols) {
+    Matrix mat;
+    mat.rows = rows;
+    mat.cols = cols;
+    mat.data = (float *)malloc(rows * cols * sizeof(float));
+
+    if (mat.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    float min = 0.0;
+    float max = 1.0;
+    // llelize the random number generation
+    #pragma omp llel
     {
         // Each thread will have its own random seed
         unsigned int seed = omp_get_thread_num(); // Use thread number as seed
@@ -264,7 +300,6 @@ Matrix matrand(int rows, int cols) {
             mat.data[i] = min + (max - min) * ((float)rand_r(&seed) / (float)RAND_MAX);
         }
     }
-    */
 
     return mat;
 }
@@ -287,8 +322,7 @@ Vector vecelem(const Vector *A, const Vector *B) {
     }
 
     int i;
-    // Perform element-wise multiplication using OpenMP for parallelization
-    //#pragma omp parallel for default(none) shared(A, B, C) private(i)	
+    // Perform element-wise multiplication
 	for (i = 0; i < C.size; i++) {
         C.data[i] = A->data[i] * B->data[i];
         //printf("Thread %d processing index %d\n", omp_get_thread_num(), i);
@@ -297,9 +331,68 @@ Vector vecelem(const Vector *A, const Vector *B) {
     return C;
 }
 
+// Function to perform matrix element-wise multiplication in llel
+Vector vecelem(const Vector *A, const Vector *B) {
+    // Check if both vectors have the same dimensions
+    if (A->size != B->size) {
+        fprintf(stderr, "Vectors must have the same dimensions for element-wise multiplication.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    Vector C;
+    C.size = A->size; // Result has the same dimensions as A and B
+    C.data = (float *)malloc(C.size * sizeof(float));
+
+    if (C.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i;
+    // Perform element-wise multiplication using OpenMP for llelization
+    #pragma omp llel for default(none) shared(A, B, C) private(i)	
+	for (i = 0; i < C.size; i++) {
+        C.data[i] = A->data[i] * B->data[i];
+        //printf("Thread %d processing index %d\n", omp_get_thread_num(), i);
+    }
+
+    return C;
+}
+
+// Function to perform matrix element-wise multiplication
+Matrix matelem(const Matrix *A, const Matrix *B) {
+    // Check if both matrices have the same dimensions
+    if (A->rows != B->rows || A->cols != B->cols) {
+        fprintf(stderr, "Matrices must have the same dimensions for element-wise multiplication.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    Matrix C;
+    C.rows = A->rows;
+    C.cols = A->cols; // Result has the same dimensions as A and B
+    C.data = (float *)malloc(C.rows * C.cols * sizeof(float));
+
+    if (C.data == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int i, j;
+    // Perform element-wise multiplication 
+    // Use OpenMP for llelization for HUGE matrices
+    #pragma omp llel for default(none) shared(A, B, C) private(i, j) collapse(2)
+    for (i = 0; i < C.rows; i++) {
+        for (j = 0; j < C.cols; j++) {
+            C.data[i * C.cols + j] = A->data[i * A->cols + j] * B->data[i * B->cols + j];
+        }
+    }
+
+    return C;
+}
+*/
 int main(){
     /*
-    Importrant notice on paralellization:
+    Importrant notice on lellization:
     
     Possibly Lost Memory Reasons:
     In case of "possibly lost", memory it is likely allocated by the OpenMP runtime 
@@ -341,12 +434,32 @@ int main(){
     double elapsed_time = (stop.tv_sec - start.tv_sec) * 1e9;
     elapsed_time = (elapsed_time + (stop.tv_nsec - start.tv_nsec)) * 1e-9;
     printf("\nVector %ld element-wise multiplication result:\n", DIMEN);
-    printVectorBetter(&bigVec);
+    printVector(&bigVec);
+    printf("Vector multiplication took %.3e seconds.\n", elapsed_time);
+
+    long int DIMEN2 = 1000;
+    Matrix mat1 = matrandPara(DIMEN2, DIMEN2);
+    Matrix mat2 = matrandPara(DIMEN2, DIMEN2);
+
+    // Get starting time
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    Matrix mat  = matelemPara(&mat1, &mat2);
+
+    // Get end time
+    clock_gettime(CLOCK_MONOTONIC, &stop);
+
+    // Calculate the elapsed time in seconds
+    elapsed_time = (stop.tv_sec - start.tv_sec) * 1e9;
+    elapsed_time = (elapsed_time + (stop.tv_nsec - start.tv_nsec)) * 1e-9;
+
+    printf("\nMatrix %ld element-wise multiplication result:\n", DIMEN2);
+    printMatrix(&mat);
     printf("Matrix multiplication took %.3e seconds.\n", elapsed_time);
 
-    Matrix mat = matrand(100, 100);
-    printMatrix(&mat);
-
+    Matrix matT = transposeMatrixPara(&mat);
+    printf("\nTransposed matrix result:\n");
+    printMatrix(&matT);
 
 	freeVector(&vec1);
 	freeVector(&vec2);
@@ -354,7 +467,10 @@ int main(){
 	freeVector(&bigVec1);
 	freeVector(&bigVec2);
 	freeVector(&bigVec);
+    freeMatrix(&mat1);
+    freeMatrix(&mat2);
     freeMatrix(&mat);
+    freeMatrix(&matT);
 
 	return 0;
 }
