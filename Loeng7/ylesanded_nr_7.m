@@ -134,3 +134,12 @@ hold on
 fplot(lagrp)
 
 lagrp(0.5)
+
+% Newtoni meetodiga
+clear
+x = [-1, 0, 1, 2];
+y = [3, -4, 5, -6];
+
+syms xx
+% Newtoni interpolatsiooni polünoom
+expand(3 + (-7)*(xx-(-1)) + 8* (xx-(-1))*(xx-0) + (-6)*(xx-(-1))*(xx-0)*(xx-1))
