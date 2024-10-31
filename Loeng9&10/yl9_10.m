@@ -86,7 +86,170 @@ ss = [0: 0.001: 1.25];
 S3_2 = interp1(s, t, ss, "spline");
 hold on
 plot(ss, S3_2, 'r')
+hold off
 
 % t = ?, kui s = 0.45 (miili)
 interp1(s, t, 0.45, 'linear') %S^(1,0) (0.45) = 44.5200
 interp1(s, t, 0.45, 'spline') %S^(3,2) (0.45) = 44.5904
+
+fprintf("\nÜlesanne 5\n")
+clear
+x = [1 2 5 8 11 12]
+y = [5 8 14 26 50 98]
+figure(4)
+plot(x, y, "o")
+grid on
+title("Ylesanne 5")
+
+
+% PIKEMALT: Meetod 1
+% Võrdsed kaalud, ehk kappa = 1 
+% Võib ka olla midagi muud sest nagunii taandub lõpus kõik välja
+k = ones(1, length(x))
+
+% lineaarfunktsiooniga vähimruutude mõttes
+% Phi(x) = c1*x + c0
+A = [   sum(x.^2),      sum(x)      % sum = 0.0; for i=1:length(x)
+        sum(x)          sum(k)]     %       sum = sum + x(i)*x(i);
+                                    % end; sum
+
+B = [   sum(y.*x)
+        sum(y)]
+
+X = A^(-1) * B
+
+f1 = @(x) X(1).*x + X(2);
+% Phi(x) ~ 6.8104*x - 10.7678
+hold on
+fplot(f1)
+
+% Meetod 2: lühemalt
+p1 = polyfit(x, y, 1)    % leiab konstantid ainult etteantud x ja y vektorite põhjal
+xx = [3, 9];
+polyval(p1, xx)
+
+% 2. ruutfunktsiooniga vähimruutude mõttes
+p2 = polyfit(x, y, 2)
+f2 = @(x) p2(1).*x.^2 + p2(2).*x + p2(3);
+hold on
+fplot(f2)
+polyval(p2, xx)
+
+fprintf("\nÜlesanne 7\n")
+clear
+x = [1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2];
+y = [9.08 10.43 11.9 13.48 15.19 17.03 19.01 21.13 23.39];
+k = [1 1 2 5 1 4 2 2 1];
+
+% kuupsplain
+xx = [min(x): 0.001: max(x)];
+S3_2 = interp1(x, y, xx, "spline");
+figure(5)
+plot(x, y, "o")
+hold on
+plot(xx, S3_2, 'r')
+grid on
+title("Ylesanne 7")
+
+S32_X1 = interp1(x, y, 1.12, "spline");
+S32_X2 = interp1(x, y, 1.35, "spline");
+
+x_val = [1.12, 1.35];
+for i = 1:length(x_val)
+    fprintf("S3_2(%3.2f) = %f\n", x_val(i), interp1(x, y, x_val(i), "spline"))
+end
+
+% vähimruutude meetod
+p = polyfit(x, y, 3)
+f = @(x) p(1).*x.^3 + p(2).*x.^2 + p(3).*x + p(4);
+hold on
+fplot(f, [min(x), max(x)])
+legend("Initial data", "S^3_2 spline", "Cubic poly")
+
+A = zeros(4, 4);
+X = zeros(4, 1);
+B = zeros(4, 1);
+
+for i = 1:length(X)
+    B(i, 1) = sum(k.*y.*x.^(4 - i));
+    for j = 1:length(X)
+        A(i, j) = sum( k.*x.^( 8 - i - j ) );   % 8 = 2*length(X)???
+    end
+end
+disp(A)
+disp(B)
+
+X = inv(A)*B
+
+polyfitweighted(x, y, 3, k)
+
+function p = polyfitweighted(x,y,n,w)
+    % polyfitweighted.m 
+    % -----------------
+    %
+    % Find a least-squares fit of 1D data y(x) with an nth order 
+    % polynomial, weighted by w(x).
+    %
+    % By S.S. Rogers (2006), based on polyfit.m by The MathWorks, Inc. - see doc
+    % polyfit for more details.
+    %
+    % Usage
+    % -----
+    %
+    % P = polyfitweighted(X,Y,N,W) finds the coefficients of a polynomial 
+    % P(X) of degree N that fits the data Y best in a least-squares sense. P 
+    % is a row vector of length N+1 containing the polynomial coefficients in
+    % descending powers, P(1)*X^N + P(2)*X^(N-1) +...+ P(N)*X + P(N+1). W is
+    % a vector of weights. 
+    %
+    % Vectors X,Y,W must be the same length.
+    %
+    % Class support for inputs X,Y,W:
+    %    float: double, single
+    %
+    % The regression problem is formulated in matrix format as:
+    %
+    %    yw = V*p    or
+    %
+    %          3    2
+    %    yw = [x w  x w  xw  w] [p3
+    %                            p2
+    %                            p1
+    %                            p0]
+    %
+    % where the vector p contains the coefficients to be found.  For a
+    % 7th order polynomial, matrix V would be:
+    %
+    % V = [w.*x.^7 w.*x.^6 w.*x.^5 w.*x.^4 w.*x.^3 w.*x.^2 w.*x w];
+    if ~isequal(size(x),size(y),size(w))
+        error('X and Y vectors must be the same size.')
+    end
+    x = x(:);
+    y = y(:);
+    w = w(:);
+    % Construct weighted Vandermonde matrix.
+    %V(:,n+1) = ones(length(x),1,class(x));
+    V(:,n+1) = w;
+    for j = n:-1:1
+       V(:,j) = x.*V(:,j+1);
+    end
+    % Solve least squares problem.
+    [Q,R] = qr(V,0);
+    ws = warning('off','all'); 
+    p = R\(Q'*(w.*y));    % Same as p = V\(w.*y);
+    warning(ws);
+    if size(R,2) > size(R,1)
+       warning('polyfitweighted:PolyNotUnique', ...
+           'Polynomial is not unique; degree >= number of data points.')
+    elseif condest(R) > 1.0e10
+        if nargout > 2
+            warning('polyfitweighted:RepeatedPoints', ...
+                'Polynomial is badly conditioned. Remove repeated data points.')
+        else
+            warning('polyfitweighted:RepeatedPointsOrRescale', ...
+                ['Polynomial is badly conditioned. Remove repeated data points\n' ...
+                '         or try centering and scaling as described in HELP POLYFIT.'])
+        end
+    end
+    p = p.';          % Polynomial coefficients are row vectors by convention.
+end
