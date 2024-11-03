@@ -156,8 +156,8 @@ int main() {
     printVector(&Qwy);
 
     // Method 2: Compute Q^T * (w .* y) using 'sgemv'
-    // Q' is the transpose of Q, we can use DGEMV for this
-    // b = Q' * wy
+    // Q^T is the transpose of Q, we can use DGEMV for this
+    // b = Q^T * wy
     Vector qwy;
     qwy.size = Q.cols;
     qwy.data = (float *)calloc(qwy.size, sizeof(float));

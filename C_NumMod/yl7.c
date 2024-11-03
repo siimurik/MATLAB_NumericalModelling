@@ -607,8 +607,8 @@ Vector polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n)
     }
 
     // Method 1: Step-by-step. Slower
-    // Transpose  matrix Q
     /*
+    // Transpose  matrix Q
     Matrix QT = transposeMatrix(&Q);
     printf("Matrix Q^T:\n");
     printMatrix(&QT);
@@ -619,8 +619,8 @@ Vector polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n)
     */
 
     // Method 2: Compute Q^T * (w .* y) using 'sgemv'
-    // Q' is the transpose of Q, we can use DGEMV for this
-    // qwy = Q' * wy
+    // Q^T is the transpose of Q, we can use DGEMV for this
+    // qwy = Q^T * wy
     Vector qwy;
     qwy.size = Q.cols;
     qwy.data = (float *)calloc(qwy.size, sizeof(float));
