@@ -160,7 +160,7 @@ Matrix transposeMatrix(const Matrix *mat) {
     //#pragma omp parallel for
     for (i = 0; i < mat->rows; i++) {
         for (j = 0; j < mat->cols; j++) {
-            transposed.data[j * transposed.rows + i] = mat->data[i * mat->cols + j];
+            transposed.data[j * transposed.cols + i] = mat->data[i * mat->cols + j];
         }
     }
 
