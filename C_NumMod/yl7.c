@@ -1,10 +1,13 @@
+/* Compile and execute with
+    $ gcc yl7.c -o yl7 -lm -lblas -llapacke
+    $ ./yl7
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <lapacke.h>
 #include <cblas.h>
-
 
 #define pi 3.14159265358979323846
 
