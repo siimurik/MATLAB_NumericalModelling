@@ -1,10 +1,7 @@
-/****************************************************************************/
-/*  Officaly known as                                                       */
-/*    SPLASH - Single Precision for Linear Algebra and Scientific Handling  */
-/*--------------------------------------------------------------------------*/
-/*  Or unoffically known as                                                 */
-/*    SPLASH - Siim’s Package for Linear Algebra and Scientific Handling    */
-/****************************************************************************/
+/************************************************************************************/
+/*  Officaly known as                                                               */
+/*    DASHPACK - Double-precision Algebraic Solutions for High-performance PACKage  */
+/************************************************************************************/
 /*  
     $ gcc -c splash.c -o splash.o
     $ ar rcs libsplash.a splash.o
