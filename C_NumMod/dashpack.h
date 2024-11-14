@@ -1,13 +1,10 @@
-#ifndef SPLASH_H
-#define SPLASH_H
+#ifndef DASHPACK_H
+#define DASHPACK_H
 
-/****************************************************************************/
-/*  Officaly known as                                                       */
-/*    SPLASH - Single Precision for Linear Algebra and Scientific Handling  */
-/*--------------------------------------------------------------------------*/
-/*  Or unoffically known as                                                 */
-/*    SPLASH - Siim’s Package for Linear Algebra and Scientific Handling    */
-/****************************************************************************/
+/************************************************************************************/
+/*  Officaly known as                                                               */
+/*    DASHPACK - Double-precision Algebraic Solutions for High-performance PACKage  */
+/************************************************************************************/
 
 #include <stdio.h>
 #include <stddef.h>
