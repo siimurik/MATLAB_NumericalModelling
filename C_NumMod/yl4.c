@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 
-// Simple iteraion method
+// Simple iteration method
 void sim(double (*g)(double), double *x_init, int *count, double tol, int max_iter ) 
 {
 
