@@ -19,13 +19,13 @@ typedef struct
     int cols;
 } Matrix;
 
-double norm(double *vec, int dim, double p);
-double normMatrix(const Matrix *mat, double p);
-Matrix createMatrix(int rows, int cols, double *values);
-void freeMatrix(Matrix *matrix);
-void F(double *z, double *result);
-void dF(double *z, double J[DIM][DIM]);
-void newtonVec(void (*F)(double*, double*), void (*dF)(double*, double[DIM][DIM]), 
+double  norm(double *vec, int dim, double p);
+double  normMatrix(const Matrix *mat, double p);
+Matrix  createMatrix(int rows, int cols, double *values);
+void    freeMatrix(Matrix *matrix);
+void    F(double *z, double *result);
+void    dF(double *z, double J[DIM][DIM]);
+void    newtonVec(void (*F)(double*, double*), void (*dF)(double*, double[DIM][DIM]), 
             double **initial_values, int num_values, double epsilon, int max_iter);
 
 int main()
@@ -204,6 +204,8 @@ void dF(double *z, double J[DIM][DIM])
     J[2][0] = z[1]*cos(z[0]*z[1]); J[2][1] = z[0]*cos(z[0]*z[1]) + 3.0*z[1]*z[1]; J[2][2] = -1.0;
 }
 
+// NOTE: This is a bad implementation bc values get redefied in the various loops.
+// Also, this may cause the calculations to take more iterations as well.
 // Newton's iteration method for vector inputs
 void newtonVec(void (*F)(double*, double*), void (*dF)(double*, double[DIM][DIM]), 
                    double **initial_values, int num_values, double epsilon, int max_iter) 

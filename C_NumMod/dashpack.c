@@ -561,25 +561,28 @@ void eig(const Matrix *matrix) {
     char  JOBVR = 'V';
     int   N     = matrix->rows;
     int   LDA   = matrix->cols;
-    double *A    = (double *)malloc(LDA * N * sizeof(double));
-    double *WR   = (double *)malloc(N * sizeof(double)); // Real parts of eigenvalues
-    double *WI   = (double *)malloc(N * sizeof(double)); // Imaginary parts of eigenvalues
+    //double *A   = (double *)malloc(LDA * N * sizeof(double));
+    double *WR  = (double *)malloc(N * sizeof(double)); // Real parts of eigenvalues
+    double *WI  = (double *)malloc(N * sizeof(double)); // Imaginary parts of eigenvalues
     int   LDVL  = matrix->rows;
     int   LDVR  = matrix->rows;
-    double *VR   = (double *)malloc(LDVR * N * sizeof(double)); // Right eigenvectors
+    double *VR  = (double *)malloc(LDVR * N * sizeof(double)); // Right eigenvectors
     int INFO;
 
-    if (A == NULL || WR == NULL || WI == NULL || VR == NULL) {
+    //if (A == NULL || WR == NULL || WI == NULL || VR == NULL) {
+    if (matrix->data == NULL || WR == NULL || WI == NULL || VR == NULL) {
         fprintf(stderr, "Failed to allocate memory.\n");
         goto cleanup;
     }
 
+    // NOTE: This seemes kinda pointless if A is not returned.
     // Copy matrix data to LAPACK format
-    memcpy(A, matrix->data, N * N * sizeof(double));
+    //memcpy(A, matrix->data, N * N * sizeof(double));
 
     // Compute eigenvalues and right eigenvectors
     //INFO = LAPACKE_dgeev(LAPACK_COL_MAJOR, JOBVL, JOBVR, N, A, LDA, WR, WI, NULL, N, VR, N);
-	INFO = LAPACKE_dgeev( LAPACK_COL_MAJOR, JOBVL, JOBVR, N, A, LDA, WR, WI, NULL, LDVL, VR, LDVR);
+	INFO = LAPACKE_dgeev(LAPACK_COL_MAJOR, JOBVL, JOBVR, N, matrix->data, LDA, WR, WI, NULL, LDVL, VR, LDVR);
+    //INFO = LAPACKE_dgeev(LAPACK_COL_MAJOR, JOBVL, JOBVR, N, A, LDA, WR, WI, NULL, LDVL, VR, LDVR);
 
     if (INFO > 0) {
         fprintf(stderr, "Error in eigenvalue computation: %d\n", INFO);
@@ -601,18 +604,65 @@ void eig(const Matrix *matrix) {
     }
 
 cleanup:
-    free(A);
+    //free(A);
     free(WR);
     free(WI);
     free(VR);
 }
 
-//=====================================================================================
-//=====================================================================================
-//=====================================================================================
+// Calculate any norm of a matrix using BLAS
+double normMatrix(const Matrix *mat, double p)
+{
+    double norm_value = 0.0;
 
+    if (p == 1) {
+        // 1-norm (maximum column sum)
+        for (int j = 0; j < mat->cols; j++) 
+        {
+            double col_sum = 0.0;
+            for (int i = 0; i < mat->rows; i++) 
+            {
+                col_sum += fabs(mat->data[i * mat->cols + j]);
+            }
+            if (col_sum > norm_value) 
+            {
+                norm_value = col_sum;
+            }
+        }
+    } else if (p == 2) 
+    {
+        // Frobenius norm (similar to Euclidean norm for vectors)
+        norm_value = cblas_dnrm2(mat->rows * mat->cols, mat->data, 1);
+    } else if (p == INFINITY) 
+    {
+        // Infinity-norm (maximum row sum)
+        for (int i = 0; i < mat->rows; i++) 
+        {
+            double row_sum = 0.0;
+            for (int j = 0; j < mat->cols; j++) 
+            {
+                row_sum += fabs(mat->data[i * mat->cols + j]);
+            }
+            if (row_sum > norm_value) 
+            {
+                norm_value = row_sum;
+            }
+        }
+    } else 
+    {
+        fprintf(stderr, "Unsupported norm type for matrices.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return norm_value;
+}
+
+//=====================================================================================
+//=====================================================================================
+//=====================================================================================
+//-------------------------------------------------------------------------------------
 // Functions for vectors
-
+//-------------------------------------------------------------------------------------
 // Function to free the allocated memory in a vector
 void freeVector(Vector *vector) {
     free(vector->data);
@@ -880,4 +930,42 @@ Vector vecelemPara(const Vector *A, const Vector *B) {
 
     return C;
 }
+
+// Calculate any norm of a vector using BLAS
+double norm(const Vector *vec, double p)
+{
+    double norm_value = 0.0;
+
+    if (p == 1) 
+    {
+        // 1-norm using BLAS
+        norm_value = cblas_dasum(vec->size, vec->data, 1);
+    } else if (p == 2) 
+    {
+        // 2-norm using BLAS
+        norm_value = cblas_dnrm2(vec->size, vec->data, 1);
+    } else if (p == INFINITY) 
+    {
+        // Infinity-norm (Maximum norm)
+        for (int i = 0; i < vec->size; i++) 
+        {
+            double abs_val = fabs(vec->data[i]);
+            if (abs_val > norm_value) 
+            {
+                norm_value = abs_val;
+            }
+        }
+    } else 
+    {
+        // p-norm
+        for (int i = 0; i < vec->size; i++) 
+        {
+            norm_value += pow(fabs(vec->data[i]), p);
+        }
+        norm_value = pow(norm_value, 1.0 / p);
+    }
+
+    return norm_value;
+}
+
 //*/
