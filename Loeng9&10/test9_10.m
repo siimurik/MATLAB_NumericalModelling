@@ -76,7 +76,7 @@ X_qr(p,:) = R\(Q \ (k .* y)')
 %---------------------------------------------------------------------
 % Solution using a special function
 fprintf("Solution using the function polyfitweighted (same idea)\n")
-pW = polyfitweighted(x, y, 3, k);                       % W - weighted
+pW = polyfitweighted(x, y, 3, k);   % W - weighted
 fprintf("pW = \n"); disp(pW)
 fW = @(x) pW(1).*x.^3 + pW(2).*x.^2 + pW(3).*x + pW(4);
 hold on
