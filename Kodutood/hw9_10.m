@@ -76,7 +76,7 @@ fprintf("\nÜlesanne 3.\n");
 f1 = @(x) 0.0;  % x <= 0
 f2 = @(x) x.^2; % 0 <= x < 1
 f3 = @(x) -2.*x.^2 + 6.*x - 3.0; % 1 <= x <= 2
-f4 = @(x) (x-3.0).^3;   % 2 < x <= 3
+f4 = @(x) (x-3.0).^2;   % 2 < x <= 3
 f5 = @(x) 0.0;  % x >= 3
 
 xC = [0.0, 1.0, 2.0, 3.0]; 
@@ -87,7 +87,10 @@ for i = 1:length(xC)
     ff2 = f{i+1};
     disp(ff1(xC(i)) == ff2(xC(i)))
 end
-fprintf("Kolmas võrdlus kukkus läbi, seega antud funktsioon EI ESITA splaini.\n")
+syms x
+diff(f1, x) 
+diff(f2, x)
+%fprintf("Kolmas võrdlus kukkus läbi, seega antud funktsioon EI ESITA splaini.\n")
 
 %--------------------------------------------------------------------------------
 

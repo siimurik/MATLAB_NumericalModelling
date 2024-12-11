@@ -1,66 +1,48 @@
-% Fixed-Point Iteration with relaxation for solving the system of equations
-% y + 5xy = x^2
-% y + x^2 - x = 0.75
+clc
+clear
+fa1 = @(x) x.^2;     % x <= 0
+fa2 = @(x) -x.^2;    % 0 < x <= 1
+fa3 = @(x) 1 - 2.*x; % x > 1
+funcs = {fa1, fa2, fa3};
+points = [0, 1];
 
-% Define tolerance, maximum number of iterations, and relaxation factor
-tolerance = 1e-6;
-max_iter = 100;
-lambda = 0.5;  % Relaxation factor (0 < lambda <= 1)
+checkSplineContinuity(funcs, points);
 
-% Initial guesses for x and y
-x = 0.5;
-y = 0.5;
 
-% Fixed-point iteration loop
-for iter = 1:max_iter
-    % Save previous values of x and y for comparison
-    x_prev = x;
-    y_prev = y;
+function checkSplineContinuity(funcs, points)
+    fprintf("Ülesanne 1.\n");
+    fprintf("a)\n");
     
-    % Update y using the second equation in fixed-point form
-    y_new = 0.75 - x_prev^2 + x_prev;
+    % Display continuity verification for the function values
+    fprintf("\nKontrollime, kas esitab splaini (kui saame 0, siis ei):\n")
+    for i = 1:length(points)
+        disp(funcs{i}(points(i)) == funcs{i+1}(points(i)));
+    end
+    fprintf("Kõik on tõesed seega edaspidi leiame, mis on siledusaste.\n")
+
+    syms x;
     
-    % Check if y is a valid number
-    if isnan(y_new) || isinf(y_new)
-        fprintf('Invalid value encountered for y at iteration %d.\n', iter);
-        break;
+    % Calculate first and second derivatives for each function
+    first_derivatives = cell(1, length(funcs));
+    second_derivatives = cell(1, length(funcs));
+    
+    for i = 1:length(funcs)
+        % Differentiate the functions symbolically and convert to function handles
+        first_derivatives{i} = matlabFunction(diff(funcs{i}(x), x));
+        second_derivatives{i} = matlabFunction(diff(first_derivatives{i}(x), x));
     end
     
-    % Compute the value inside the square root for x
-    sqrt_arg = y_new + 5 * x_prev * y_new;
-    
-    % Ensure we are not taking the square root of a negative number
-    if sqrt_arg < 0
-        fprintf('Encountered negative value under square root at iteration %d.\n', iter);
-        break;
+    % Check first derivative continuity (p = 1)
+    fprintf("Kontrollime võrdsust, et leida siledusaste.\nKontroll, kas p=1:\n")
+    for i = 1:length(points)
+        disp(first_derivatives{i}(points(i)) == first_derivatives{i+1}(points(i)));
     end
     
-    % Update x using the first equation in fixed-point form
-    x_new = sqrt(sqrt_arg);
-    
-    % Check if x is a valid number
-    if isnan(x_new) || isinf(x_new)
-        fprintf('Invalid value encountered for x at iteration %d.\n', iter);
-        break;
+    % Check second derivative continuity (p = 2)
+    fprintf("\nKontroll, kas p=2:\n")
+    for i = 1:length(points)
+        disp(second_derivatives{i}(points(i)) == second_derivatives{i+1}(points(i)));
     end
     
-    % Apply relaxation
-    x = (1 - lambda) * x_prev + lambda * x_new;
-    y = (1 - lambda) * y_prev + lambda * y_new;
-    
-    % Check for convergence
-    if abs(x - x_prev) < tolerance && abs(y - y_prev) < tolerance
-        fprintf('Converged after %d iterations.\n', iter);
-        break;
-    end
-    
-    % Display iteration results
-    fprintf('Iteration %d: x = %.6f, y = %.6f\n', iter, x, y);
+    fprintf("Pole võrdsed, seega jääb kehtima viimane aste.\n");
 end
-
-if iter == max_iter
-    fprintf('Max iterations reached without convergence.\n');
-end
-
-% Display the final solution
-fprintf('Solution: x = %.6f, y = %.6f\n', x, y);
