@@ -74,7 +74,9 @@ coefs = polyfit(x, f, 2);
 func2 = @(x) coefs(1).*x.^2 + coefs(2).*x + coefs(3);
 y_squarVec = func2(x_vec);
 
-integral = simpsonSolve(y_squarVec, 0, 1)
+integral = simpsonSolve(y_squarVec, 0, 1);
+fprintf("integral = \n\n")
+disp(integral)
 
 fprintf("Manual kuuppolünoomi tulemus:\n")
 coefs = polyfit(x, f, 3);

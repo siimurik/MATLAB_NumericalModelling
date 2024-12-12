@@ -38,7 +38,7 @@ d2fa3_dx = matlabFunction(diff(dfa3_dx_func(x), x));
 disp( 2.0 == -2.0)
 disp(-2.0 ==  0.0)
 fprintf("Pole võrdsed, seega jääb kehtima viimane aste.\n")
-fprintf("Seega on tegemis S^(2,1) splainiga.\n")
+fprintf("Seega on tegemist S^(2,1) splainiga.\n")
 
 
 fprintf("ab)\n");
@@ -88,8 +88,31 @@ for i = 1:length(xC)
     disp(ff1(xC(i)) == ff2(xC(i)))
 end
 syms x
-diff(f1, x) 
-diff(f2, x)
+df1_dx = @(x) 0.0;
+df2_dx = matlabFunction(diff(f2(x), x));
+df3_dx = matlabFunction(diff(f3(x), x));
+df4_dx = matlabFunction(diff(f4(x), x));
+df5_dx = @(x) 0.0;
+
+fprintf("Kontrollime võrdsust, et leida siledusaste.\nKontroll, kas p=1:\n")
+disp(df1_dx(0.0) == df2_dx(0.0))
+disp(df2_dx(1.0) == df3_dx(1.0))
+disp(df3_dx(2.0) == df4_dx(2.0))
+disp(df4_dx(3.0) == df5_dx(3.0))
+
+
+d2f1_dx = @(x) 0.0;
+d2f2_dx = @(x) 2.0;
+d2f3_dx = @(x) -4.0;
+d2f4_dx = @(x) 2.0;
+d2f5_dx = @(x) 0.0;
+
+fprintf("Kontrollime võrdsust, et leida siledusaste.\nKontroll, kas p=2:\n")
+disp(d2f1_dx(0.0) == d2f2_dx(0.0))
+disp(d2f2_dx(1.0) == d2f3_dx(1.0))
+disp(d2f3_dx(2.0) == d2f4_dx(2.0))
+disp(d2f4_dx(3.0) == d2f5_dx(3.0))
+
 %fprintf("Kolmas võrdlus kukkus läbi, seega antud funktsioon EI ESITA splaini.\n")
 
 %--------------------------------------------------------------------------------

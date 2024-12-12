@@ -90,7 +90,6 @@ fprintf("Erilahend:\n"); disp(specSol)
 
 fprintf("Ülesanne 4.\n")
 %{
-
  dy         2
 ---- - y = x
  dx         
@@ -101,7 +100,6 @@ fprintf("Üldlahend:\n"); disp(genSol)
 
 fprintf("Ülesanne 5.\n")
 %{
-
  dy         
 ---- = 2(2x - y)
  dx         
