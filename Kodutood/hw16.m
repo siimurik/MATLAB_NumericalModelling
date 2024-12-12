@@ -18,7 +18,7 @@ hold on
 plot(x, y, "o-")
 
 fprintf("Runge-Kutta meetod:\n")
-steps_size = 0.05;
+step_size = 0.05;
 x_span = x0:steps_size:xn;
 y0 = y(1);
 [x,y] = ode45(f, x_span, y0);
