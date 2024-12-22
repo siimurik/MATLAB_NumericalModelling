@@ -751,6 +751,10 @@ Vector matvec(const Matrix *A, const Vector *x) {
 // Function to solve the linear system Ax = b
 Vector linsolve(const Matrix *A, const Vector *b) {
     // Check for dimension compatibility
+    if (A == NULL || b == NULL || A->data == NULL || b->data == NULL) {
+        fprintf(stderr, "Error: Null pointer input.\n");
+        exit(EXIT_FAILURE);
+    }
     if (A->cols != b->size) {
         fprintf(stderr, "Error: Incompatible dimensions for system.\n");
         exit(EXIT_FAILURE);
@@ -758,9 +762,8 @@ Vector linsolve(const Matrix *A, const Vector *b) {
 
     // Allocate memory for the result vector
     Vector x;
-    x.size = A->cols;
+    x.size = b->size;
     x.data = (double *)malloc(x.size * sizeof(double));
-
     if (x.data == NULL) {
         fprintf(stderr, "Memory allocation failed for result vector.\n");
         exit(EXIT_FAILURE);
@@ -768,23 +771,29 @@ Vector linsolve(const Matrix *A, const Vector *b) {
 
     // Copy the input vector b to the result vector x
     memcpy(x.data, b->data, x.size * sizeof(double));
-    //for (int i = 0; i < x.size; i++) {
-    //    x.data[i] = b->data[i];
-    //}
 
-    // Perform LU factorization and solve the system using LAPACKE
+    // Allocate memory for pivot indices
     int *ipiv = (int *)malloc(A->rows * sizeof(int));
-    int info = LAPACKE_dgesv(LAPACK_COL_MAJOR, // Matrix storage order
-                             A->rows, // Number of rows in A
-                             1, // Number of right-hand sides
-                             A->data, // Pointer to matrix A
-                             A->cols, // Leading dimension of A
-                             ipiv, // Pivot indices
-                             x.data, // Pointer to result vector x
-                             A->cols); // Leading dimension of x
+    if (ipiv == NULL) {
+        fprintf(stderr, "Memory allocation failed for pivot indices.\n");
+        free(x.data);
+        exit(EXIT_FAILURE);
+    }
+
+    // Solve the system using LAPACKE_sgesv
+    int info = LAPACKE_dgesv(LAPACK_ROW_MAJOR,  // Row-major order
+                             A->rows,          // Number of rows in A
+                             1,                // Number of right-hand sides
+                             A->data,          // Pointer to matrix A
+                             A->cols,          // Leading dimension of A
+                             ipiv,             // Pivot indices
+                             x.data,           // Pointer to result vector x
+                             1);               // Leading dimension of x
 
     if (info != 0) {
-        fprintf(stderr, "Error: LAPACKE_dgesv failed with info = %d.\n", info);
+        fprintf(stderr, "Error: LAPACKE_sgesv failed with info = %d.\n", info);
+        free(x.data);
+        free(ipiv);
         exit(EXIT_FAILURE);
     }
 
@@ -968,4 +977,43 @@ double norm(const Vector *vec, double p)
     return norm_value;
 }
 
+// Function to create a linearly spaced array
+Vector createArray(double start, double end, double step)
+{
+    // Check if step size is valid
+    if (step == 0.0) {
+        fprintf(stderr, "Error: Step size cannot be zero.\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((end - start) / step < 0) {
+        fprintf(stderr, "Error: Step size is inconsistent with start and end points.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Calculate the number of elements
+    int size = (int)ceil((end - start) / step) + 1; // Use `ceil` for double precision
+
+    // Allocate memory for the array
+    Vector result;
+    result.size = size;
+    result.data = (double *)malloc(size * sizeof(double));
+    if (result.data == NULL) {
+        fprintf(stderr, "Memory allocation failed for result array.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fill the array with values
+    double current = start;
+    for (int i = 0; i < size; i++) {
+        result.data[i] = current;
+        current += step;
+
+        // Ensure the last value is exactly the endpoint
+        if ((step > 0 && current > end) || (step < 0 && current < end)) {
+            current = end;
+        }
+    }
+
+    return result;
+}
 //*/

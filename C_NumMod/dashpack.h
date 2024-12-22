@@ -42,7 +42,7 @@ Matrix  matrand(int rows, int cols);
 Matrix  matrandPara(int rows, int cols);
 Matrix  compan(const double *coefficients, int size);
 void    eig(const Matrix *matrix);
-double normMatrix(const Matrix *mat, double p);
+double  normMatrix(const Matrix *mat, double p);
 
 // Vector operations
 void    freeVector(Vector *vector);
@@ -57,6 +57,7 @@ Vector  vecrandPara(int dim);
 Vector  vecelem(const Vector *A, const Vector *B);
 Vector  vecelemPara(const Vector *A, const Vector *B);
 double  norm(const Vector *vec, double p);
+Vector  createArray(double start, double end, double step);
 
 
 #endif

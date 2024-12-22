@@ -19,13 +19,13 @@
 
 typedef struct {
     float *data;
-    int rows;
-    int cols;
+    unsigned int rows;
+    unsigned int cols;
 } Matrix;
 
 typedef struct {
     float *data;
-    int size;
+    unsigned int size;
 } Vector;
 
 // Matrix operations
@@ -45,6 +45,7 @@ Matrix  matrand(int rows, int cols);
 Matrix  matrandPara(int rows, int cols);
 Matrix  compan(const float *coefficients, int size);
 void    eig(const Matrix *matrix);
+float   normMatrix(const Matrix *mat, float p);
 
 // Vector operations
 void    freeVector(Vector *vector);
@@ -58,6 +59,12 @@ Vector  vecrand(int dim);
 Vector  vecrandPara(int dim);
 Vector  vecelem(const Vector *A, const Vector *B);
 Vector  vecelemPara(const Vector *A, const Vector *B);
-
+float   norm(const Vector *vec, float p);
+Vector  createArray(float start, float end, float step);
+Vector  polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n);
+Vector  linspace(float start, float end, int num);
+Vector  roots(const Vector *coeff);
+Vector  polycoefs(const Vector *roots);
+Vector  conv(const Vector *a, const Vector *b);
 
 #endif
