@@ -87,9 +87,9 @@ int main()
 
     printf("\n");
     eigB(&A, true);
-    Matrix eig_D = eigB(&D, false);
-    printf("\nEigenvalues of matrix D:\n");
-    printMatrix(&eig_D);
+    //Matrix eig_D = eigB(&D, false);
+    //printf("\nEigenvalues of matrix D:\n");
+    //printMatrix(&eig_D);
 
     int n = 4;
     double norms[n];
@@ -107,6 +107,24 @@ int main()
     Vector x_minus_d = vecadd(&x, &minus_d);
     printf("\nminus_d = "); printVector(&minus_d);
     printf("x_minus_d = "); printVector(&x_minus_d);
+
+    Vector a1 = createArray(4.0, 8.0, 1.0);
+    Vector b1 = createArray(88.0, 92.0, 1.0);
+    printf("a1 = "); printVector(&a1);
+    printf("b1 = "); printVector(&b1);
+
+    Vector elem_prod = vecelem(&a1, &b1);
+    printf("a1 * b1 = "); printVector(&elem_prod);
+
+    Vector c1 = createArray(101.0, 105.0, 1.0);
+    
+    double norm_a1 = norm(&a1, 1);
+    double norm_b1 = norm(&a1, 2);
+    double norm_c1 = norm(&a1, INFINITY);
+    printf("\n|a1|_1 = %.4f",     norm_a1);
+    printf("\n|b1|_2 = %.4f",     norm_b1);
+    printf("\n|c1|_inf = %.4f\n", norm_c1);
+
 
     printf("\n");
     Vector r = vecrand(3);
@@ -131,12 +149,16 @@ int main()
     freeVector(&b);
     freeVector(&d);
     freeVector(&x);
-    freeMatrix(&eig_D);
+    //freeMatrix(&eig_D);
     freeVector(&minus_d);
     freeVector(&x_minus_d);
     freeVector(&r);
     freeMatrix(&comp);
     //freeMatrix(&eig_comp);
     freeMatrix(&coef);
+    freeVector(&a1);
+    freeVector(&b1);
+    freeVector(&c1);
+    freeVector(&elem_prod);
     return 0;
 }

@@ -556,6 +556,98 @@ Matrix linsolve_overdet(const Matrix *A, const Matrix *F) {
     return x;
 }
 
+// Function to compute the roots of a polynomial using the Durand-Kerner method
+Matrix roots(const Vector *coeff) {
+    unsigned int n = coeff->size - 1; // Degree of the polynomial
+    if (n < 1) {
+        fprintf(stderr, "Polynomial degree must be at least 1.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize the output matrix
+    Matrix result;
+    result.rows = n;
+    result.cols = 2; // Real and imaginary parts
+    result.gsl_matrix_ptr = gsl_matrix_alloc(n, 2);
+    if (result.gsl_matrix_ptr == NULL) {
+        fprintf(stderr, "Memory allocation failed for result matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initial guess: roots uniformly spaced on the unit circle
+    double pi = 3.14159265358979323846;
+    for (unsigned int i = 0; i < n; i++) {
+        double angle = 2 * pi * i / n; // Angle for the unit circle
+        gsl_matrix_set(result.gsl_matrix_ptr, i, 0, cos(angle)); // Real part
+        gsl_matrix_set(result.gsl_matrix_ptr, i, 1, sin(angle)); // Imaginary part
+    }
+
+    // Iterative refinement using the Durand-Kerner method
+    int max_iter = 1000;
+    double tolerance = 1e-14;
+    double real_i, imag_i, p_real, p_imag, denom_real, denom_imag;
+    double real_j, imag_j, diff_real, diff_imag, mag_sq, new_real, new_imag;
+    double coeff_real, temp_real, temp_imag, delta_real, delta_imag;
+    for (unsigned int iter = 0; iter < max_iter; iter++) {
+        int converged = 1; // Flag to check for convergence
+
+        for (unsigned int i = 0; i < n; i++) {
+            real_i = gsl_matrix_get(result.gsl_matrix_ptr, i, 0);
+            imag_i = gsl_matrix_get(result.gsl_matrix_ptr, i, 1);
+
+            // Compute the value of the polynomial and its correction term
+            p_real = gsl_vector_get(coeff->gsl_vector_ptr, 0); // Leading coefficient
+            p_imag = 0.0; // No imaginary part initially
+            denom_real = 1.0, denom_imag = 0.0; // Product term denominator
+
+            for (unsigned int j = 0; j < n; j++) {
+                if (j == i) continue; // Skip the current root
+                real_j = gsl_matrix_get(result.gsl_matrix_ptr, j, 0);
+                imag_j = gsl_matrix_get(result.gsl_matrix_ptr, j, 1);
+
+                // Compute (z_i - z_j) and its magnitude squared
+                diff_real = real_i - real_j;
+                diff_imag = imag_i - imag_j;
+                mag_sq = diff_real * diff_real + diff_imag * diff_imag;
+
+                // Update the denominator as a complex product
+                new_real = denom_real * diff_real - denom_imag * diff_imag;
+                new_imag = denom_real * diff_imag + denom_imag * diff_real;
+                denom_real = new_real;
+                denom_imag = new_imag;
+            }
+
+            // Evaluate the polynomial at z_i
+            for (unsigned int k = 1; k <= n; k++) {
+                coeff_real = gsl_vector_get(coeff->gsl_vector_ptr, k);
+                temp_real = p_real * real_i - p_imag * imag_i + coeff_real;
+                temp_imag = p_real * imag_i + p_imag * real_i;
+                p_real = temp_real;
+                p_imag = temp_imag;
+            }
+
+            // Compute the correction term
+            mag_sq = denom_real * denom_real + denom_imag * denom_imag;
+            delta_real = (p_real * denom_real + p_imag * denom_imag) / mag_sq;
+            delta_imag = (p_imag * denom_real - p_real * denom_imag) / mag_sq;
+
+            // Update the root estimate
+            new_real = real_i - delta_real;
+            new_imag = imag_i - delta_imag;
+
+            gsl_matrix_set(result.gsl_matrix_ptr, i, 0, new_real);
+            gsl_matrix_set(result.gsl_matrix_ptr, i, 1, new_imag);
+
+            // Check for convergence
+            if (fabs(delta_real) > tolerance || fabs(delta_imag) > tolerance) {
+                converged = 0;
+            }
+        }
+
+        if (converged) break; // Stop if all roots have converged
+    }
+    return result;
+}
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -905,63 +997,7 @@ Vector linspace(double start, double end, int num) {
     return result;
 }
 
-// Function to find the roots of the polynomial using iterative refinement
-Matrix roots(const Vector *coeff)
-{
-    int n = coeff->size - 1; // Degree of the polynomial
-    Matrix result;
-    result.rows = n;
-    result.cols = 2; // Two columns for real and imaginary parts
-
-    // Allocate memory for the gsl_matrix (n rows, 2 columns)
-    result.gsl_matrix_ptr = gsl_matrix_alloc(result.rows, result.cols);
-    if (result.gsl_matrix_ptr == NULL) 
-    {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Initial guess for roots (uniformly spaced on the unit circle)
-    double pi = 3.14159265358979323846;
-    double angle;
-    for (int i = 0; i < n; i++) 
-    {
-        angle = 2 * pi * i / n; // Angle for unit circle
-        gsl_matrix_set(result.gsl_matrix_ptr, i, 0, cos(angle)); // Real part
-        gsl_matrix_set(result.gsl_matrix_ptr, i, 1, sin(angle)); // Imaginary part
-    }
-
-    // Iterative method to refine the root estimates
-    double real, imag, p, dp, denominator;
-    for (int iter = 0; iter < 100; iter++) // Number of iterations
-    { 
-        for (int i = 0; i < n; i++) 
-        {
-            real = gsl_matrix_get(result.gsl_matrix_ptr, i, 0);  // Real part
-            imag = gsl_matrix_get(result.gsl_matrix_ptr, i, 1);  // Imaginary part
-
-            // Evaluate the polynomial and its derivative at the current estimate
-            p  = 0.0; // Polynomial value
-            dp = 0.0; // Derivative value
-
-            for (int j = 0; j < coeff->size; j++) 
-            {
-                p += gsl_vector_get(coeff->gsl_vector_ptr, j) * pow(real, n - j);
-                if (j < n) {
-                    dp += (n - j) * gsl_vector_get(coeff->gsl_vector_ptr, j) * pow(real, n - j - 1);
-                }
-            }
-
-            // Update the root estimate
-            denominator = p / (dp + 1e-10); // Avoid division by zero
-            gsl_matrix_set(result.gsl_matrix_ptr, i, 0, real - denominator); // Update real part
-            gsl_matrix_set(result.gsl_matrix_ptr, i, 1, imag - denominator); // Update imaginary part
-        }
-    }
-
-    return result;
-}
-
+// Function to convert roots to polynomial coefficients
 Vector polycoefs(const Vector *roots) {
     int n = roots->size; // Number of roots
     Vector coeff;
