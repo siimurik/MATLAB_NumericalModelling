@@ -9,12 +9,13 @@
 #ifndef GALAX_H
 #define GALAX_H
 
+//#include <time.h>
+#include <math.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include <gsl/gsl_fit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_math.h>
@@ -22,12 +23,15 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_block.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_permutation.h>
+#include <gsl/gsl_integration.h>
 
 // Type Definitions
 typedef struct {
@@ -40,6 +44,12 @@ typedef struct {
     gsl_vector *gsl_vector_ptr;
     unsigned int size;
 } Vector;
+
+// Define a struct to hold ODE parameters
+typedef struct {
+    gsl_odeiv2_system system;
+    gsl_odeiv2_driver *driver;
+} ode_solver;
 
 // Matrix Functions
 void    freeMatrix(Matrix *matrix);
@@ -79,5 +89,11 @@ Vector  linspace(double start, double end, int num);
 //Vector  roots(const Vector *coeff);
 Vector  polycoefs(const Vector *roots);
 Vector  conv(const Vector *a, const Vector *b);
+
+double  integral(double (*func)(double, void *), double xmin, double xmax);
+ode_solver *create_ode_solver(int (*func)(double, const double[], double[], void *), void *params, size_t dim, double hstart, double epsabs, double epsrel);
+void solve_ode(ode_solver *solver, double *t, double t1, double y[], double dt);
+void free_ode_solver(ode_solver *solver);
+void ode45(int (*func)(double, const double[], double[], void *), void *params, size_t dimension, double *t, double t1, double y[], double dt);
 
 #endif // GALAX_H

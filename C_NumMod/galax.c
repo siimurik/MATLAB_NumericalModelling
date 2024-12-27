@@ -2,12 +2,13 @@
 //  GALAX - GSL Advanced Analytics eXtension
 /******************************************************/
 
+//#include <time.h>
+#include <math.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include <gsl/gsl_fit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_math.h>
@@ -15,12 +16,15 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_block.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_permutation.h>
+#include <gsl/gsl_integration.h>
 
 typedef struct {
     gsl_matrix *gsl_matrix_ptr;
@@ -32,6 +36,12 @@ typedef struct {
     gsl_vector *gsl_vector_ptr;
     unsigned int size;
 } Vector;
+
+// Define a struct to hold ODE parameters
+typedef struct {
+    gsl_odeiv2_system system;
+    gsl_odeiv2_driver *driver;
+} ode_solver;
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -51,7 +61,6 @@ Matrix zerosMatrix(int rows, int cols) {
     mat.gsl_matrix_ptr = gsl_matrix_calloc(rows, cols); // Allocate and initialize with zeros
     return mat;
 }
-
 
 // Function to create and initialize a matrix with specific values
 Matrix createMatrix(int rows, int cols, double *values) {
@@ -185,7 +194,6 @@ Matrix inverseMatrix(const Matrix *mat) {
         exit(EXIT_FAILURE);
     }
 
-    // Copy the original matrix to the inverse matrix
     gsl_matrix_memcpy(inverse.gsl_matrix_ptr, mat->gsl_matrix_ptr);
 
     gsl_permutation *p = gsl_permutation_alloc(n);
@@ -194,16 +202,14 @@ Matrix inverseMatrix(const Matrix *mat) {
     // Perform LU decomposition
     gsl_linalg_LU_decomp(inverse.gsl_matrix_ptr, p, &signum);
 
-    // Compute the inverse
-    gsl_matrix *inverse_gsl = gsl_matrix_alloc(n, n);
-    gsl_linalg_LU_invert(inverse.gsl_matrix_ptr, p, inverse_gsl);
-    gsl_matrix_memcpy(inverse.gsl_matrix_ptr, inverse_gsl);
+    // Compute the inverse directly
+    gsl_linalg_LU_invert(inverse.gsl_matrix_ptr, p, inverse.gsl_matrix_ptr);
 
-    gsl_matrix_free(inverse_gsl);
     gsl_permutation_free(p);
 
     return inverse;
 }
+
 
 Matrix matmul(const Matrix *A, const Matrix *B) {
     if (A->cols != B->rows) {
@@ -318,14 +324,13 @@ Matrix matrand(int rows, int cols) {
     }
 
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
-    gsl_matrix *temp = gsl_matrix_alloc(rows, cols);
 
-    gsl_matrix_set_all(temp, 1.0);  // Fill with 1.0 for scaling
-    gsl_matrix_scale(temp, gsl_rng_uniform(rng));  // Scale with random values
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            gsl_matrix_set(mat.gsl_matrix_ptr, i, j, gsl_rng_uniform(rng));
+        }
+    }
 
-    gsl_matrix_memcpy(mat.gsl_matrix_ptr, temp);
-
-    gsl_matrix_free(temp);
     gsl_rng_free(rng);
 
     return mat;
@@ -1009,6 +1014,11 @@ Vector polycoefs(const Vector *roots) {
         exit(EXIT_FAILURE);
     }
 
+    // Initialize all coefficients to zero
+    for (int i = 0; i < coeff.size; i++) {
+        gsl_vector_set(coeff.gsl_vector_ptr, i, 0.0);
+    }
+
     gsl_poly_complex_workspace *workspace = gsl_poly_complex_workspace_alloc(n + 1);
     gsl_vector_set(coeff.gsl_vector_ptr, 0, 1.0); // Leading coefficient (x^n)
 
@@ -1016,8 +1026,11 @@ Vector polycoefs(const Vector *roots) {
         double root = gsl_vector_get(roots->gsl_vector_ptr, i);
 
         for (int j = i; j >= 0; j--) {
-            gsl_vector_set(coeff.gsl_vector_ptr, j + 1,
-                           gsl_vector_get(coeff.gsl_vector_ptr, j + 1) - root * gsl_vector_get(coeff.gsl_vector_ptr, j));
+            double new_val = gsl_vector_get(coeff.gsl_vector_ptr, j + 1) - root * gsl_vector_get(coeff.gsl_vector_ptr, j);
+            gsl_vector_set(coeff.gsl_vector_ptr, j + 1, new_val);
+
+            // Debug print to verify each step
+            //printf("Debug: coeff[%d] = %.4f after setting with root %.4f\n", j + 1, new_val, root);
         }
     }
 
@@ -1025,6 +1038,7 @@ Vector polycoefs(const Vector *roots) {
 
     return coeff;
 }
+
 
 Vector conv(const Vector *a, const Vector *b) {
     int n = a->size + b->size - 1; // Size of the result vector
@@ -1052,3 +1066,73 @@ Vector conv(const Vector *a, const Vector *b) {
 
     return result;
 }
+
+
+double integral(double (*func)(double, void *), double xmin, double xmax) {
+    gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
+
+    double result, error;
+    gsl_function F;
+    F.function = func;
+    F.params = NULL;
+    double epsabs = 1.49e-08;
+    double epsrel = 1.49e-08;
+
+    // Perform the integration
+    gsl_integration_qags(&F, xmin, xmax, epsabs, epsrel, 1000, workspace, &result, &error);
+
+    gsl_integration_workspace_free(workspace);
+    return result;
+}
+
+// Function to create an ODE solver
+ode_solver *create_ode_solver(int (*func)(double, const double[], double[], void *), void *params, size_t dim, double hstart, double epsabs, double epsrel) {
+    ode_solver *solver = (ode_solver *)malloc(sizeof(ode_solver));
+    solver->system.function = func;
+    solver->system.jacobian = NULL;
+    solver->system.dimension = dim;
+    solver->system.params = params;
+    solver->driver = gsl_odeiv2_driver_alloc_y_new(&solver->system, gsl_odeiv2_step_rkf45, hstart, epsabs, epsrel);
+    return solver;
+}
+
+// Function to solve ODEs with a given time step
+void solve_ode(ode_solver *solver, double *t, double t1, double y[], double dt) {
+    while (*t < t1) {
+        int status = gsl_odeiv2_driver_apply(solver->driver, t, *t + dt, y);
+        if (status != GSL_SUCCESS) {
+            printf("error: return value=%d\n", status);
+            break;
+        }
+
+        printf("%.5e", *t);  // Print time
+        for (size_t i = 0; i < solver->system.dimension; i++) {
+            printf(" %.5e", y[i]);  // Print each element of y
+        }
+        printf("\n");
+    }
+}
+
+// Function to free the ODE solver
+void free_ode_solver(ode_solver *solver) {
+    gsl_odeiv2_driver_free(solver->driver);
+    free(solver);
+}
+
+// Function to solve ODE with default parameters and specified dimension
+void ode45(int (*func)(double, const double[], double[], void *), void *params, size_t dimension, double *t, double t1, double y[], double dt) {
+    // Default parameters for the solver
+    double initial_step_size = 1e-6;
+    double absolute_error = 1e-6;
+    double relative_error = 0.0;
+
+    ode_solver *solver = create_ode_solver(func, params, dimension, initial_step_size, absolute_error, relative_error);
+    solve_ode(solver, t, t1, y, dt);
+    free_ode_solver(solver);
+}
+
+
+
+
+
+
