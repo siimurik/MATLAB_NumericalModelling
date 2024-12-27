@@ -28,6 +28,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_spline.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_permutation.h>
@@ -69,7 +70,7 @@ void    eig(const Matrix *matrix);
 Matrix  eigB(const Matrix *matrix, bool save_result);
 double  normMatrix(const Matrix *mat, double p);
 Matrix  linsolve_overdet(const Matrix *A, const Matrix *F);
-Matrix roots(const Vector *coeff);
+Matrix  roots(const Vector *coeff);
 
 // Vector Functions
 void    freeVector(Vector *vector);
@@ -86,14 +87,15 @@ double  norm(const Vector *vec, double p);
 Vector  createArray(double start, double end, double step);
 Vector  polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n);
 Vector  linspace(double start, double end, int num);
-//Vector  roots(const Vector *coeff);
 Vector  polycoefs(const Vector *roots);
 Vector  conv(const Vector *a, const Vector *b);
+Vector  interp1(const Vector *s, const Vector *t, const Vector *ss, const char *method);
+
 
 double  integral(double (*func)(double, void *), double xmin, double xmax);
 ode_solver *create_ode_solver(int (*func)(double, const double[], double[], void *), void *params, size_t dim, double hstart, double epsabs, double epsrel);
-void solve_ode(ode_solver *solver, double *t, double t1, double y[], double dt);
-void free_ode_solver(ode_solver *solver);
-void ode45(int (*func)(double, const double[], double[], void *), void *params, size_t dimension, double *t, double t1, double y[], double dt);
+void    solve_ode(ode_solver *solver, double *t, double t1, double y[], double dt);
+void    free_ode_solver(ode_solver *solver);
+void    ode45(int (*func)(double, const double[], double[], void *), void *params, size_t dimension, double *t, double t1, double y[], double dt);
 
 #endif // GALAX_H

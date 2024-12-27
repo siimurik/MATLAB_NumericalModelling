@@ -4,12 +4,12 @@
     $ gcc gsl_test.c -o gtest -L. -lopenblas -lgalax -lgsl -lm
 */
 
+#include <math.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include "galax.h"
 
 #define true 1
@@ -39,7 +39,7 @@ int diff_eq(double x, const double y[], double dydx[], void *params) {
 
 int main()
 {
-    printf("\nExercise 6.\n");
+    printf("\nBasic Linear Algebra.\n");
     int rows, cols;
     rows = 3;
     cols = 3;
@@ -111,6 +111,7 @@ int main()
     //printf("\nEigenvalues of matrix D:\n");
     //printMatrix(&eig_D);
 
+    printf("\nNorms of a matrix.");
     int n = 4;
     double norms[n];
     norms[0] = normMatrix(&A, INFINITY);
@@ -122,12 +123,14 @@ int main()
     }
     printf("\n");
 
+    printf("\nVector Scalar Multiplication and Addition.");
     double scal = -1.0;
     Vector minus_d = vecscal(&d, scal);
     Vector x_minus_d = vecadd(&x, &minus_d);
     printf("\nminus_d = "); printVector(&minus_d);
     printf("x_minus_d = "); printVector(&x_minus_d);
 
+    printf("\nVector norms.\n");
     Vector a1 = createArray(4.0, 8.0, 1.0);
     Vector b1 = createArray(88.0, 92.0, 1.0);
     printf("a1 = "); printVector(&a1);
@@ -146,6 +149,7 @@ int main()
     printf("\n|c1|_inf = %.4f\n", norm_c1);
 
     printf("\n");
+    printf("\nRoots of a polynomial.\n");
     Vector r = vecrand(3);
     printf("r = "); printVector(&r);
 
@@ -155,18 +159,20 @@ int main()
     Matrix coef = roots(&r);
     printf("coef = "); printMatrix(&coef);
 
+    printf("\nPolynomial Coefficients based on roots.");
     double pData[3] = {-3.0, 0.0, 3.0};
     Vector p = createVector(3, pData);
     Vector p_coef = polycoefs(&p);
     printf("\np_coef = "); printVector(&p_coef);
 
-
+    printf("\nConvolution.\n");
     Vector p2 = createArray(2.0, 5.0, 1.0);
     printf("p2 = "); printVector(&p2);
 
     Vector convolution = conv(&p_coef, &p2);
     printf("conv = "); printVector(&convolution);
-   
+    
+    printf("\nIntegration.");
     double pi = 4.0*atan(1.0); 
     double xmin = 0.0;
     double xmax = pi/2.0;
@@ -174,8 +180,7 @@ int main()
     printf("\nint_xmin^xmax (x^2)/(1.0 + sin(x) + cos(x)), xmin = 0.0, xmax = pi/2");
     printf("\nresult = %.10f\n", result);
 
-    printf("\n");
-    printf("\nThe van der Pol equation:\ny'' - μ(1−y^2)y' + y = 0\n");
+    printf("\nThe van der Pol equation:\ny'' - μ(1-y^2)y' + y = 0\n");
     // ODE parameters
     double mu = 1.0;
     double t_start = 0.0;
@@ -188,7 +193,7 @@ int main()
     ode45(vdp1, &mu, dimension, &t_start, t_end, y, dt);
     
     printf("\n");
-    printf("\nDifferential equation:\ny(2x^4+y)dy/dx = (1−4xy^2)x^2\n");
+    printf("\nDifferential equation:\ny(2x^4+y)dy/dx = (1-4xy^2)x^2\n");
     // Difficult ODE problem
     double t2 = 0.0;        // This value get modified; hence we have to point to it.
     double y2[1] = {1.0};   // Initial condition
@@ -198,7 +203,48 @@ int main()
 
     // Solve the ODE with default parameters
     ode45(diff_eq, NULL, dim, &t2, tend2, y2, dt2);
+    
+    printf("\nLeast squares method:\n");
+    double s_data[] = {1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+    double y_data[] = {9.08, 10.43, 11.9, 13.48, 15.19, 17.03, 19.01, 21.13, 23.39};
+    double w_data[] = {1.0, 1.0, 2.0, 5.0, 1.0, 4.0, 2.0, 2.0, 1.0};
+    int m = sizeof(s_data) / sizeof(s_data[0]);
+    Vector sM = createVector(m, s_data); 
+    Vector yM = createVector(m, y_data); 
+    Vector wM = createVector(m, w_data);
+    
+    printf("s = "); printVector(&sM);
+    printf("y = "); printVector(&yM);
+    printf("w = "); printVector(&wM);
+    
+    Vector p3 = polyfitweighted(&sM, &yM, &wM, 3);
+    printf("\np3 = "); printVector(&p3);
 
+    printf("\nInterpolation.\n");
+    double distData[] = {0.0, 0.25,  0.5, 0.75, 1.0, 1.25};
+    double t_data[] = {0.0, 25.0, 49.4, 73.0, 96.4, 119.4};
+    int d_size = sizeof(distData) / sizeof(distData[0]);
+    Vector di = createVector(d_size, distData);
+    Vector t = createVector(d_size, t_data);
+    printf("di = "); printVector(&di);
+    printf("t = "); printVector(&t);
+
+
+    Vector S1_0 = interp1(&di, &t, &di, "linear");
+    printf("S1_0 = "); printVector(&S1_0);
+
+    Vector dd = createArray(0.0, 1.25, 0.001);
+    printf("dd = "); printVector(&dd);
+
+    Vector S3_2 = interp1(&di, &t, &dd, "spline");
+    printf("S3_2 = "); printVector(&S3_2);
+    
+    double s32valdata[] = {0.45};
+    Vector s32val = createVector(1, s32valdata);
+    Vector S3_2_val = interp1(&di, &t, &s32val, "linear");
+    printf("S3_2(%.2f)= ", s32valdata[0]); printVector(&S3_2_val);
+
+    
     freeMatrix(&A);
     freeMatrix(&B);
     freeMatrix(&minus_B);
@@ -226,5 +272,18 @@ int main()
     freeVector(&p_coef);
     freeVector(&p2);
     freeVector(&convolution);
+    freeVector(&sM);
+    freeVector(&yM);
+    freeVector(&wM);
+    freeVector(&p3);
+    freeVector(&di);
+    freeVector(&t);
+    freeVector(&S1_0);
+    freeVector(&dd);
+    freeVector(&S3_2);
+    freeVector(&s32val);
+    freeVector(&S3_2_val);
+
+
     return 0;
 }

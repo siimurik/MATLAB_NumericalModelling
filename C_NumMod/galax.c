@@ -21,6 +21,7 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_spline.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_permutation.h>
@@ -927,16 +928,16 @@ Vector createArray(double start, double end, double step) {
     return result;
 }
 
-Vector polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n) {
-    int rows = x->size;
-    int cols = n + 1;
+Vector polyfitweighted(const Vector *x, const Vector *y, const Vector *w, unsigned int n) {
+    unsigned int len = x->size;
+    unsigned int cols = n + 1;
 
     Matrix V;
-    V.rows = rows;
+    V.rows = len;
     V.cols = cols;
     V.gsl_matrix_ptr = gsl_matrix_alloc(V.rows, V.cols);
     Vector wy;
-    wy.size = rows;
+    wy.size = len;
     wy.gsl_vector_ptr = gsl_vector_alloc(wy.size);
 
     if (V.gsl_matrix_ptr == NULL || wy.gsl_vector_ptr == NULL) {
@@ -945,43 +946,47 @@ Vector polyfitweighted(const Vector *x, const Vector *y, const Vector *w, int n)
     }
 
     // Construct the weighted Vandermonde matrix
-    for (int i = 0; i < rows; i++) {
+    for (unsigned int i = 0; i < len; i++) {
+        // Set the last column as the weight
         gsl_matrix_set(V.gsl_matrix_ptr, i, n, gsl_vector_get(w->gsl_vector_ptr, i));
 
+        // Fill the Vandermonde row starting from the highest power to the lowest
         for (int j = n - 1; j >= 0; j--) {
             gsl_matrix_set(V.gsl_matrix_ptr, i, j, gsl_vector_get(x->gsl_vector_ptr, i) * gsl_matrix_get(V.gsl_matrix_ptr, i, j + 1));
         }
 
+        // Calculate weighted y values
         gsl_vector_set(wy.gsl_vector_ptr, i, gsl_vector_get(w->gsl_vector_ptr, i) * gsl_vector_get(y->gsl_vector_ptr, i));
     }
 
-    gsl_matrix *Q = gsl_matrix_alloc(V.rows, V.cols);
-    gsl_matrix *R = gsl_matrix_alloc(V.cols, V.cols);
-    gsl_vector *tau = gsl_vector_alloc(V.cols);
+    // Perform SVD
+    gsl_matrix *U = gsl_matrix_alloc(V.rows, V.cols);
+    gsl_matrix *V_svd = gsl_matrix_alloc(V.cols, V.cols);
+    gsl_vector *S = gsl_vector_alloc(V.cols);
+    gsl_vector *work = gsl_vector_alloc(V.cols);
 
-    // Perform QR decomposition
-    gsl_linalg_QR_decomp(V.gsl_matrix_ptr, tau);
-    gsl_linalg_QR_unpack(V.gsl_matrix_ptr, tau, Q, R);
+    gsl_matrix_memcpy(U, V.gsl_matrix_ptr);
+    gsl_linalg_SV_decomp(U, V_svd, S, work);
 
-    gsl_vector *qwy = gsl_vector_alloc(V.cols);
-    gsl_blas_dgemv(CblasTrans, 1.0, Q, wy.gsl_vector_ptr, 0.0, qwy);
-
+    // Solve for p using SVD
     gsl_vector *p = gsl_vector_alloc(V.cols);
-    gsl_linalg_R_solve(R, qwy, p);
+    gsl_linalg_SV_solve(U, V_svd, S, wy.gsl_vector_ptr, p);
 
-    Vector result;
-    result.size = V.cols;
-    result.gsl_vector_ptr = p;
+    Vector p_result;
+    p_result.size = p->size;
+    p_result.gsl_vector_ptr = p;
 
-    gsl_matrix_free(Q);
-    gsl_matrix_free(R);
-    gsl_vector_free(tau);
-    gsl_vector_free(qwy);
+    // Free the allocated matrices and vectors used for SVD
+    gsl_matrix_free(U);
+    gsl_matrix_free(V_svd);
+    gsl_vector_free(S);
+    gsl_vector_free(work);
     gsl_matrix_free(V.gsl_matrix_ptr);
     gsl_vector_free(wy.gsl_vector_ptr);
 
-    return result;
+    return p_result;
 }
+
 
 Vector linspace(double start, double end, int num) {
     Vector result;
@@ -1067,6 +1072,102 @@ Vector conv(const Vector *a, const Vector *b) {
     return result;
 }
 
+// Function to interpolate using specified method ("linear" or "spline")
+Vector interp1(const Vector *s, const Vector *t, const Vector *ss, const char *method)
+{
+    // Check for dimension compatibility
+    if (s == NULL || t == NULL || ss == NULL || s->size != t->size) {
+        fprintf(stderr, "Error: Input vectors are incompatible.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate memory for the result vector
+    Vector result;
+    result.size = ss->size;
+    result.gsl_vector_ptr = gsl_vector_alloc(result.size);
+    if (result.gsl_vector_ptr == NULL) {
+        fprintf(stderr, "Memory allocation failed for result vector.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Determine the interpolation method
+    const gsl_interp_type *interp_type;
+    if (strcmp(method, "linear") == 0) {
+        interp_type = gsl_interp_linear;
+    } else if (strcmp(method, "spline") == 0) {
+        interp_type = gsl_interp_cspline;
+    } else {
+        fprintf(stderr, "Error: Unsupported interpolation method '%s'.\n", method);
+        gsl_vector_free(result.gsl_vector_ptr);
+        exit(EXIT_FAILURE);
+    }
+
+    // Prepare the data for GSL (convert double to double for GSL compatibility)
+    gsl_vector *s_double = gsl_vector_alloc(s->size);
+    gsl_vector *t_double = gsl_vector_alloc(t->size);
+    gsl_vector *ss_double = gsl_vector_alloc(ss->size);
+    if (!s_double || !t_double || !ss_double) {
+        fprintf(stderr, "Error: Memory allocation failed for temporary arrays.\n");
+        gsl_vector_free(result.gsl_vector_ptr);
+        gsl_vector_free(s_double);
+        gsl_vector_free(t_double);
+        gsl_vector_free(ss_double);
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy data into the gsl_vectors
+    for (unsigned int i = 0; i < s->size; i++) {
+        gsl_vector_set(s_double, i, s->gsl_vector_ptr->data[i]);
+        gsl_vector_set(t_double, i, t->gsl_vector_ptr->data[i]);
+    }
+    for (unsigned int i = 0; i < ss->size; i++) {
+        gsl_vector_set(ss_double, i, ss->gsl_vector_ptr->data[i]);
+    }
+
+    // Create a GSL interpolation object and accelerator
+    gsl_interp_accel *acc = gsl_interp_accel_alloc();
+    gsl_spline *spline = gsl_spline_alloc(interp_type, s->size);
+
+    // Initialize the interpolation object
+    if (gsl_spline_init(spline, s_double->data, t_double->data, s->size) != GSL_SUCCESS) {
+        fprintf(stderr, "Error: Failed to initialize interpolation.\n");
+        gsl_spline_free(spline);
+        gsl_interp_accel_free(acc);
+        gsl_vector_free(result.gsl_vector_ptr);
+        gsl_vector_free(s_double);
+        gsl_vector_free(t_double);
+        gsl_vector_free(ss_double);
+        exit(EXIT_FAILURE);
+    }
+
+    // Perform interpolation for each value in ss
+    for (unsigned int i = 0; i < ss->size; i++) {
+        if (gsl_vector_get(ss_double, i) < gsl_vector_get(s_double, 0) || 
+            gsl_vector_get(ss_double, i) > gsl_vector_get(s_double, s->size - 1)) {
+            fprintf(stderr, "Error: Interpolation point ss[%d] = %f is out of bounds.\n", i, gsl_vector_get(ss_double, i));
+            gsl_spline_free(spline);
+            gsl_interp_accel_free(acc);
+            gsl_vector_free(result.gsl_vector_ptr);
+            gsl_vector_free(s_double);
+            gsl_vector_free(t_double);
+            gsl_vector_free(ss_double);
+            exit(EXIT_FAILURE);
+        }
+        gsl_vector_set(result.gsl_vector_ptr, i, gsl_spline_eval(spline, gsl_vector_get(ss_double, i), acc));
+    }
+
+    // Free GSL resources
+    gsl_spline_free(spline);
+    gsl_interp_accel_free(acc);
+    gsl_vector_free(s_double);
+    gsl_vector_free(t_double);
+    gsl_vector_free(ss_double);
+
+    return result; // Return the interpolated vector
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 double integral(double (*func)(double, void *), double xmin, double xmax) {
     gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
